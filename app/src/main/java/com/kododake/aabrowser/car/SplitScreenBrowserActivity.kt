@@ -200,6 +200,13 @@ open class SplitScreenBrowserActivity : CarActivity(),
                 if (event.actionMasked == MotionEvent.ACTION_UP) {
                     lastTouchX = event.x
                     lastTouchY = event.y
+                    val keyboardTouch = projectedKeyboardController?.consumeKeyboardTouch() == true ||
+                        projectedKeyboardController?.isKeyboardTouch(lastTouchX, lastTouchY) == true
+                    if (keyboardTouch
+                    ) {
+                        handler.removeCallbacks(showProjectedKeyboardAfterInteraction)
+                        return handled
+                    }
                     handler.removeCallbacks(showProjectedKeyboardAfterInteraction)
                     handler.postDelayed(
                         showProjectedKeyboardAfterInteraction,

@@ -37,9 +37,11 @@
     </style>
 
     <style name="ProjectedKeyboardView" parent="">
-        <item name="android:background">?attr/colorSurfaceContainer</item>
+        <item name="android:background">@android:color/transparent</item>
         <item name="android:keyBackground">@drawable/inline_keyboard_key</item>
-        <item name="android:keyTextColor">?attr/colorOnSurface</item>
+        <!-- KeyboardView requires a popup layout to dispatch its long-press callback. -->
+        <item name="android:popupLayout">@layout/inline_keyboard_popup_gate</item>
+        <item name="android:keyTextColor">@color/projected_keyboard_text</item>
         <item name="android:keyTextSize">18sp</item>
         <item name="android:labelTextSize">14sp</item>
         <item name="android:shadowColor">@android:color/transparent</item>

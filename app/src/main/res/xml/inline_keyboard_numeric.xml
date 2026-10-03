@@ -25,10 +25,13 @@
         <Key android:codes="46" android:keyLabel="." />
     </Row>
     <Row>
+        <Key android:codes="-3" android:keyIcon="@drawable/inline_keyboard_hide" android:keyWidth="18%p" />
         <Key android:codes="-2" android:keyLabel="#+=" android:keyWidth="18%p" />
-        <Key android:codes="-5" android:keyLabel="⌫" android:keyWidth="18%p" />
+        <Key android:codes="-5" android:keyIcon="@drawable/inline_keyboard_backspace" android:keyWidth="18%p" />
         <Key android:codes="44" android:keyLabel="," android:keyWidth="12%p" />
-        <Key android:codes="-4" android:keyLabel="OK" android:keyWidth="30%p" />
-        <Key android:codes="-3" android:keyLabel="⌄" android:keyWidth="18%p" />
+        <Key
+            android:codes="-4"
+            android:keyIcon="@drawable/inline_keyboard_done"
+            android:keyWidth="30%p" />
     </Row>
 </Keyboard>

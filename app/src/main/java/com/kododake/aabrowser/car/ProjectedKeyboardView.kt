@@ -27,12 +27,15 @@ import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.BackgroundColorSpan
 import android.text.style.ForegroundColorSpan
+import android.util.AttributeSet
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewConfiguration
+import android.widget.FrameLayout
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.HorizontalScrollView
@@ -67,6 +70,9 @@ internal class ProjectedKeyboardView(
     private var previewWasDragged = false
     private val previewTouchSlop = ViewConfiguration.get(context).scaledTouchSlop
     private var previewSession: SystemInputSession? = null
+    private val keyboardContainer = FrameLayout(context)
+    private var accentPopup: LinearLayout? = null
+    var onPointerEvent: ((Int) -> Unit)? = null
     private var previewUpdatePosted = false
     private val selectionBackgroundColor = MaterialColors.getColor(
         context,
@@ -101,15 +107,13 @@ internal class ProjectedKeyboardView(
         )
     }
     private val previewText = TextView(context)
-    private val languageButton = TextView(context)
     private val clearButton = TextView(context)
     private val keyboardView = LayoutInflater.from(context)
-        .inflate(R.layout.inline_keyboard_view, this, false) as KeyboardView
+        .inflate(R.layout.inline_keyboard_view, keyboardContainer, false) as ProjectedKeyboardSurface
     private val audioManager = context.getSystemService(AudioManager::class.java)
 
     private val enabledLanguages = SUPPORTED_LANGUAGES
     private var languageIndex = findInitialLanguage(context)
-    private var editorInfo = EditorInfo()
     private var currentKeyboard: Keyboard? = null
     private var currentLayoutResource = 0
     private var inputType = InputType.TYPE_CLASS_TEXT
@@ -135,34 +139,44 @@ internal class ProjectedKeyboardView(
     init {
         orientation = VERTICAL
         isFocusable = false
-        setPadding(dp(6), dp(5), dp(6), dp(4))
-        setBackgroundColor(
-            MaterialColors.getColor(
-                context,
-                com.google.android.material.R.attr.colorSurfaceContainer,
-                0xFF101216.toInt()
-            )
-        )
+        setPadding(dp(8), dp(6), dp(8), dp(6))
+        clipChildren = false
+        clipToPadding = false
+        background = android.graphics.drawable.GradientDrawable().apply {
+            cornerRadius = dp(16).toFloat()
+            setColor(context.getColor(R.color.projected_keyboard_background))
+        }
+        clipToOutline = true
 
         addView(createPreviewRow(), LayoutParams(LayoutParams.MATCH_PARENT, dp(48)))
+        keyboardContainer.apply {
+            clipChildren = false
+            clipToPadding = false
+            addView(
+                keyboardView,
+                FrameLayout.LayoutParams(
+                    LayoutParams.MATCH_PARENT,
+                    LayoutParams.WRAP_CONTENT
+                )
+            )
+        }
         keyboardView.apply {
             setPreviewEnabled(false)
             setProximityCorrectionEnabled(false)
-            setPopupParent(this@ProjectedKeyboardView)
             setOnKeyboardActionListener(createKeyboardActionListener())
+            onAccentLongPress = ::showAccentPopup
         }
         addView(
-            keyboardView,
+            keyboardContainer,
             LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
         )
         loadKeyboard(resolveKeyboardResource())
-        updateLanguageButton()
     }
 
     fun configure(newEditorInfo: EditorInfo) {
+        hideAccentPopup()
         val newInputType = newEditorInfo.inputType
         val inputTypeChanged = newInputType != inputType
-        editorInfo = newEditorInfo
         inputType = newInputType
         isSecureInput = isSecureInput(newInputType)
         if (inputTypeChanged) {
@@ -173,10 +187,10 @@ internal class ProjectedKeyboardView(
         } else {
             updateActionLabel()
         }
-        updateLanguageButton()
     }
 
     fun setInputSession(session: SystemInputSession) {
+        hideAccentPopup()
         previewSession = session
         schedulePreviewRender()
     }
@@ -186,6 +200,7 @@ internal class ProjectedKeyboardView(
     }
 
     fun clearInputSession() {
+        hideAccentPopup()
         previewSession = null
         previewUpdatePosted = false
         previewText.removeCallbacks(renderPreview)
@@ -254,18 +269,116 @@ internal class ProjectedKeyboardView(
 
     fun containsPoint(x: Float, y: Float): Boolean {
         if (visibility != View.VISIBLE) return false
-        return containsPointInBounds(x, y)
+        return containsPointInWindow(x, y)
     }
 
     fun containsPointInBounds(x: Float, y: Float): Boolean {
-        val bounds = Rect()
-        getHitRect(bounds)
-        return bounds.contains(x.toInt(), y.toInt())
+        return containsPointInWindow(x, y)
+    }
+
+    fun containsPointInWindow(x: Float, y: Float): Boolean {
+        val location = IntArray(2)
+        getLocationInWindow(location)
+        return Rect(
+            location[0],
+            location[1],
+            location[0] + width,
+            location[1] + height
+        ).contains(x.toInt(), y.toInt())
+    }
+
+    fun hideAccentPopupIfVisible(): Boolean {
+        if (accentPopup == null) return false
+        hideAccentPopup()
+        return true
+    }
+
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        onPointerEvent?.invoke(event.actionMasked)
+        return super.dispatchTouchEvent(event)
     }
 
     override fun onDetachedFromWindow() {
         cancelDeleteRepeat()
+        hideAccentPopup()
         super.onDetachedFromWindow()
+    }
+
+    private fun showAccentPopup(key: Keyboard.Key): Boolean {
+        val popupCharacters = key.popupCharacters?.toString()?.takeIf { it.length > 1 }
+            ?: return false
+        hideAccentPopup()
+
+        val options = popupCharacters.map { character ->
+            character.toString().let {
+                if (shiftEnabled || capsLockEnabled) it.uppercase(currentLanguage) else it
+            }
+        }
+        val horizontalPadding = dp(8)
+        val buttonWidth = if (keyboardContainer.width > 0) {
+            ((keyboardContainer.width - horizontalPadding) / options.size)
+                .coerceAtMost(dp(48))
+                .coerceAtLeast(dp(24))
+        } else {
+            dp(48)
+        }
+        val popup = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+            background = context.getDrawable(R.drawable.inline_keyboard_popup_background)
+            elevation = dp(4).toFloat()
+            isClickable = true
+        }
+        options.forEach { option ->
+            val accentKey = TextView(context).apply {
+                gravity = Gravity.CENTER
+                text = option
+                textSize = 20f
+                setTextColor(context.getColor(R.color.projected_keyboard_text))
+                contentDescription = "Accent $option"
+                isClickable = true
+                isFocusable = false
+                background = context.getDrawable(R.drawable.inline_keyboard_key)
+                setOnClickListener {
+                    performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                    audioManager?.playSoundEffect(AudioManager.FX_KEYPRESS_STANDARD)
+                    listener.onText(option)
+                    if (shiftEnabled && !capsLockEnabled) {
+                        shiftEnabled = false
+                        keyboardView.isShifted = false
+                        keyboardView.invalidateAllKeys()
+                    }
+                    hideAccentPopup()
+                }
+            }
+            popup.addView(accentKey, LinearLayout.LayoutParams(buttonWidth, dp(48)))
+        }
+
+        val popupWidth = buttonWidth * options.size + horizontalPadding
+        val maxLeft = (keyboardContainer.width - popupWidth).coerceAtLeast(0)
+        val keyCenterX = keyboardView.left + key.x + key.width / 2
+        val left = (keyCenterX - popupWidth / 2).coerceIn(0, maxLeft)
+        val top = (keyboardView.top + key.y - dp(56)).coerceAtLeast(0)
+        keyboardContainer.addView(
+            popup,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.TOP or Gravity.START
+            ).apply {
+                leftMargin = left
+                topMargin = top
+            }
+        )
+        popup.bringToFront()
+        accentPopup = popup
+        return true
+    }
+
+    private fun hideAccentPopup() {
+        accentPopup?.let(keyboardContainer::removeView)
+        accentPopup = null
     }
 
     private fun createPreviewRow(): View {
@@ -274,53 +387,13 @@ internal class ProjectedKeyboardView(
             gravity = Gravity.CENTER_VERTICAL
         }
 
-        languageButton.apply {
-            gravity = Gravity.CENTER
-            textSize = 12f
-            setTextColor(
-                MaterialColors.getColor(
-                    context,
-                    com.google.android.material.R.attr.colorOnPrimaryContainer,
-                    0xFF001C46.toInt()
-                )
-            )
-            background = roundedBackground(
-                MaterialColors.getColor(
-                    context,
-                    com.google.android.material.R.attr.colorPrimaryContainer,
-                    0xFFD7E3FF.toInt()
-                ),
-                MaterialColors.getColor(
-                    context,
-                    com.google.android.material.R.attr.colorPrimaryContainer,
-                    0xFFD7E3FF.toInt()
-                )
-            )
-            isClickable = true
-            isFocusable = false
-            setOnClickListener { cycleLanguage() }
-        }
-        row.addView(languageButton, LayoutParams(dp(76), dp(44)))
-
         previewText.apply {
             textSize = 16f
             gravity = Gravity.CENTER_VERTICAL
             setSingleLine(true)
             setHorizontallyScrolling(true)
-            setTextColor(
-                MaterialColors.getColor(
-                    context,
-                    com.google.android.material.R.attr.colorOnSurface,
-                    0xFF191C20.toInt()
-                )
-            )
-            setHintTextColor(
-                MaterialColors.getColor(
-                    context,
-                    com.google.android.material.R.attr.colorOnSurfaceVariant,
-                    0xFF43474E.toInt()
-                )
-            )
+            setTextColor(context.getColor(R.color.projected_keyboard_text))
+            setHintTextColor(context.getColor(R.color.projected_keyboard_secondary))
             setPadding(dp(10), 0, dp(10), 0)
             contentDescription = "Current field text"
             isClickable = true
@@ -328,6 +401,7 @@ internal class ProjectedKeyboardView(
             setOnTouchListener { _, event ->
                 when (event.actionMasked) {
                     android.view.MotionEvent.ACTION_DOWN -> {
+                        hideAccentPopup()
                         previewTouchStartX = event.x
                         previewTouchLastX = event.x
                         previewWasDragged = false
@@ -373,16 +447,8 @@ internal class ProjectedKeyboardView(
             isHorizontalScrollBarEnabled = false
             isFillViewport = true
             background = roundedBackground(
-                MaterialColors.getColor(
-                    context,
-                    com.google.android.material.R.attr.colorSurfaceContainerHighest,
-                    0xFFDFE3E8.toInt()
-                ),
-                MaterialColors.getColor(
-                    context,
-                    com.google.android.material.R.attr.colorOutlineVariant,
-                    0xFFC3C7CF.toInt()
-                )
+                context.getColor(R.color.projected_keyboard_field),
+                context.getColor(R.color.projected_keyboard_outline)
             )
             addView(
                 previewText,
@@ -392,7 +458,6 @@ internal class ProjectedKeyboardView(
         row.addView(
             previewScroller,
             LayoutParams(0, dp(44), 1f).apply {
-                marginStart = dp(6)
                 marginEnd = dp(6)
             }
         )
@@ -401,17 +466,14 @@ internal class ProjectedKeyboardView(
             text = "\u00D7"
             textSize = 25f
             gravity = Gravity.CENTER
-            setTextColor(
-                MaterialColors.getColor(
-                    context,
-                    com.google.android.material.R.attr.colorOnSurfaceVariant,
-                    0xFF43474E.toInt()
-                )
-            )
+            setTextColor(context.getColor(R.color.projected_keyboard_secondary))
             contentDescription = "Clear field text"
             isClickable = true
             isFocusable = false
-            setOnClickListener { listener.onClearText() }
+            setOnClickListener {
+                hideAccentPopup()
+                listener.onClearText()
+            }
         }
         row.addView(clearButton, LayoutParams(dp(44), dp(44)))
         return row
@@ -424,15 +486,7 @@ internal class ProjectedKeyboardView(
         shiftEnabled = false
         capsLockEnabled = false
         loadKeyboard(resolveKeyboardResource())
-        updateLanguageButton()
         listener.onLanguageChanged(currentLanguage)
-    }
-
-    private fun updateLanguageButton() {
-        val locale = currentLanguage
-        languageButton.text = locale.toLanguageTag().uppercase(Locale.ROOT)
-        languageButton.contentDescription =
-            "Keyboard language: ${locale.getDisplayName(locale)}"
     }
 
     private fun resolveKeyboardResource(): Int {
@@ -454,11 +508,15 @@ internal class ProjectedKeyboardView(
 
     private fun loadKeyboard(resourceId: Int) {
         if (resourceId == currentLayoutResource && currentKeyboard != null) {
+            currentKeyboard?.let(::applyPopupCharacters)
             updateActionLabel()
             return
         }
 
         val keyboard = Keyboard(context, resourceId)
+        keyboard.keys.forEach { key ->
+            if (key.label?.isEmpty() == true) key.label = null
+        }
         applyPopupCharacters(keyboard)
         currentKeyboard = keyboard
         currentLayoutResource = resourceId
@@ -471,79 +529,27 @@ internal class ProjectedKeyboardView(
         val language = currentLanguage.language
         keyboard.keys.forEach { key ->
             val code = key.codes.firstOrNull() ?: return@forEach
-            if (code !in 'a'.code..'z'.code) return@forEach
-            key.popupCharacters = popupCharacters(code.toChar(), language)
-        }
-    }
-
-    private fun popupCharacters(key: Char, language: String): String? {
-        return when (language) {
-            "pt" -> when (key) {
-                'a' -> "áàâãä"
-                'e' -> "éèêë"
-                'i' -> "íìîï"
-                'o' -> "óòôõö"
-                'u' -> "úùûü"
-                'c' -> "ç"
-                else -> null
+            if (code !in 'a'.code..'z'.code) {
+                key.popupCharacters = null
+                return@forEach
             }
-            "es" -> when (key) {
-                'a' -> "áà"
-                'e' -> "éè"
-                'i' -> "íì"
-                'o' -> "óò"
-                'u' -> "úü"
-                'n' -> "ñ"
-                else -> null
-            }
-            "fr" -> when (key) {
-                'a' -> "àâäæ"
-                'c' -> "ç"
-                'e' -> "éèêë"
-                'i' -> "îï"
-                'o' -> "ôœ"
-                'u' -> "ùûü"
-                else -> null
-            }
-            "de" -> when (key) {
-                'a' -> "äáà"
-                'o' -> "öóò"
-                'u' -> "üúù"
-                's' -> "ß"
-                else -> null
-            }
-            else -> when (key) {
-                'a' -> "áàâäãå"
-                'e' -> "éèêë"
-                'i' -> "íìîï"
-                'o' -> "óòôöõ"
-                'u' -> "úùûü"
-                'n' -> "ñ"
-                else -> null
-            }
+            val popupCharacters = KeyboardAccentOptions.forKey(code.toChar(), language)
+            key.popupCharacters = popupCharacters
         }
     }
 
     private fun updateActionLabel() {
         val keyboard = currentKeyboard ?: return
-        val actionLabel = editorInfo.actionLabel?.toString()?.takeIf(String::isNotBlank)
-            ?: editorActionLabel()
         keyboard.keys.firstOrNull {
-            it.codes.firstOrNull() == Keyboard.KEYCODE_DONE
-        }?.label = actionLabel
-        keyboardView.invalidateAllKeys()
-    }
-
-    private fun editorActionLabel(): String {
-        val action = editorInfo.imeOptions and EditorInfo.IME_MASK_ACTION
-        val portuguese = currentLanguage.language == "pt"
-        return when (action) {
-            EditorInfo.IME_ACTION_GO -> if (portuguese) "Ir" else "Go"
-            EditorInfo.IME_ACTION_SEARCH -> if (portuguese) "Buscar" else "Search"
-            EditorInfo.IME_ACTION_SEND -> if (portuguese) "Enviar" else "Send"
-            EditorInfo.IME_ACTION_NEXT -> if (portuguese) "Próximo" else "Next"
-            else -> if (portuguese) "OK" else "Done"
+            it.codes.firstOrNull() == KEYCODE_DOMAIN
+        }?.label = when {
+            inputType and InputType.TYPE_MASK_VARIATION ==
+                InputType.TYPE_TEXT_VARIATION_URI -> ".com"
+            inputType and InputType.TYPE_MASK_VARIATION ==
+                InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS -> "@"
+            else -> "."
         }
+        keyboardView.invalidateAllKeys()
     }
 
     private fun handleCharacter(primaryCode: Int) {
@@ -581,6 +587,8 @@ internal class ProjectedKeyboardView(
     private fun createKeyboardActionListener(): KeyboardView.OnKeyboardActionListener =
         object : KeyboardView.OnKeyboardActionListener {
             override fun onPress(primaryCode: Int) {
+                hideAccentPopup()
+                if (primaryCode == KEYCODE_SPACER) return
                 if (primaryCode == Keyboard.KEYCODE_DELETE) {
                     deleteKeyHeld = true
                     deleteRepeatTriggered = false
@@ -591,6 +599,7 @@ internal class ProjectedKeyboardView(
             }
 
             override fun onRelease(primaryCode: Int) {
+                if (primaryCode == KEYCODE_SPACER) return
                 if (primaryCode == Keyboard.KEYCODE_DELETE) {
                     cancelDeleteRepeat()
                 }
@@ -618,6 +627,7 @@ internal class ProjectedKeyboardView(
 
             override fun onKey(primaryCode: Int, keyCodes: IntArray) {
                 when (primaryCode) {
+                    KEYCODE_SPACER -> Unit
                     Keyboard.KEYCODE_SHIFT -> toggleShift()
                     Keyboard.KEYCODE_DELETE -> {
                         if (!deleteRepeatTriggered) listener.onBackspace()
@@ -628,6 +638,7 @@ internal class ProjectedKeyboardView(
                         symbolsVisible = !symbolsVisible
                         loadKeyboard(resolveKeyboardResource())
                     }
+                    KEYCODE_LANGUAGE -> cycleLanguage()
                     KEYCODE_DOMAIN -> listener.onText(
                         when {
                             inputType and InputType.TYPE_MASK_VARIATION ==
@@ -637,10 +648,10 @@ internal class ProjectedKeyboardView(
                             else -> "."
                         }
                     )
-                    KEYCODE_SCHEME -> listener.onText("https://")
                     else -> handleCharacter(primaryCode)
                 }
             }
+
         }
 
     private fun roundedBackground(color: Int, outline: Int) =
@@ -655,7 +666,8 @@ internal class ProjectedKeyboardView(
 
     private companion object {
         const val KEYCODE_DOMAIN = -102
-        const val KEYCODE_SCHEME = -103
+        const val KEYCODE_LANGUAGE = -104
+        const val KEYCODE_SPACER = -105
         const val DOUBLE_TAP_SHIFT_MS = 350L
         const val DELETE_REPEAT_START_DELAY_MS = 260L
         const val DELETE_REPEAT_INTERVAL_MS = 35L
@@ -701,4 +713,15 @@ internal class ProjectedKeyboardView(
                 inputType and InputType.TYPE_TEXT_FLAG_CAP_WORDS != 0 ||
                 inputType and InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS != 0
     }
+}
+
+internal class ProjectedKeyboardSurface @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null
+) : KeyboardView(context, attrs) {
+    var onAccentLongPress: ((Keyboard.Key) -> Boolean)? = null
+
+    @Suppress("OVERRIDE_DEPRECATION")
+    override fun onLongPress(popupKey: Keyboard.Key): Boolean =
+        onAccentLongPress?.invoke(popupKey) ?: false
 }

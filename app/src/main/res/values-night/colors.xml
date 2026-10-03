@@ -29,6 +29,15 @@
     <color name="theme_surface_container">#FF0B0B0B</color>
     <color name="theme_surface_container_high">#FF121212</color>
     <color name="theme_surface_container_highest">#FF1A1A1A</color>
+    <color name="projected_keyboard_background">#FF202124</color>
+    <color name="projected_keyboard_field">#FF303134</color>
+    <color name="projected_keyboard_outline">#FF5F6368</color>
+    <color name="projected_keyboard_text">#FFE8EAED</color>
+    <color name="projected_keyboard_secondary">#FFBDC1C6</color>
+    <color name="projected_keyboard_pressed">#FF3C4043</color>
+    <color name="projected_keyboard_accent">#FF81C995</color>
+    <color name="projected_keyboard_accent_text">#FF202124</color>
+    <color name="projected_keyboard_space">#FF9AA0A6</color>
     <color name="qr_code_background">#FFFFFFFF</color>
     <color name="menu_overlay_scrim">#A6000000</color>
     <color name="launcher_background_fill">#2C8F5D</color>

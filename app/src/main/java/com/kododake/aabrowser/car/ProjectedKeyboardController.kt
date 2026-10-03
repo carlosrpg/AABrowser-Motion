@@ -36,6 +36,7 @@ internal class ProjectedKeyboardController(
     private var addressInputView: ComposeView? = null
     private var isAddressInputFocused = false
     private var ignoreHiddenKeyboardClickUntil = 0L
+    private var keyboardTouchDispatched = false
 
     val view = ProjectedKeyboardView(
         context,
@@ -78,6 +79,13 @@ internal class ProjectedKeyboardController(
         }
     ).apply {
         visibility = View.GONE
+        onPointerEvent = { action ->
+            when (action) {
+                android.view.MotionEvent.ACTION_DOWN -> keyboardTouchDispatched = false
+                android.view.MotionEvent.ACTION_UP -> keyboardTouchDispatched = true
+                android.view.MotionEvent.ACTION_CANCEL -> keyboardTouchDispatched = false
+            }
+        }
     }
 
     fun onAddressInputFocusChanged(hasFocus: Boolean) {
@@ -114,6 +122,14 @@ internal class ProjectedKeyboardController(
         }
         return activateInput(focusedView)
     }
+
+    fun consumeKeyboardTouch(): Boolean =
+        keyboardTouchDispatched.also { keyboardTouchDispatched = false }
+
+    fun isKeyboardTouch(surfaceX: Float, surfaceY: Float): Boolean =
+        view.containsPoint(surfaceX, surfaceY) ||
+            (SystemClock.uptimeMillis() < ignoreHiddenKeyboardClickUntil &&
+                view.containsPointInBounds(surfaceX, surfaceY))
 
     private fun activateInput(focusedView: View?): Boolean {
         val inputSession = SystemInputSession.from(focusedView)
@@ -168,6 +184,7 @@ internal class ProjectedKeyboardController(
     }
 
     fun hideIfVisible(): Boolean {
+        if (view.hideAccentPopupIfVisible()) return true
         if (view.visibility != View.VISIBLE) return false
         hide()
         return true

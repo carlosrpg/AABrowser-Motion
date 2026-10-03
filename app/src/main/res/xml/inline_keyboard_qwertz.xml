@@ -1,10 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Keyboard xmlns:android="http://schemas.android.com/apk/res/android"
-    android:horizontalGap="2dp"
+    android:horizontalGap="0dp"
     android:keyHeight="48dp"
-    android:keyWidth="9.6%p"
+    android:keyWidth="8.3%p"
     android:verticalGap="3dp">
     <Row>
+        <Key android:codes="-105" android:keyWidth="4.15%p" />
+        <Key android:codes="49" android:keyLabel="1" />
+        <Key android:codes="50" android:keyLabel="2" />
+        <Key android:codes="51" android:keyLabel="3" />
+        <Key android:codes="52" android:keyLabel="4" />
+        <Key android:codes="53" android:keyLabel="5" />
+        <Key android:codes="54" android:keyLabel="6" />
+        <Key android:codes="55" android:keyLabel="7" />
+        <Key android:codes="56" android:keyLabel="8" />
+        <Key android:codes="57" android:keyLabel="9" />
+        <Key android:codes="48" android:keyLabel="0" />
+        <Key android:codes="-105" android:keyWidth="8.3%p" />
+        <Key android:codes="-105" android:keyWidth="4.15%p" />
+    </Row>
+    <Row>
+        <Key android:codes="-105" android:keyWidth="4.15%p" />
         <Key android:codes="113" android:keyLabel="q" />
         <Key android:codes="119" android:keyLabel="w" />
         <Key android:codes="101" android:keyLabel="e" />
@@ -15,8 +31,10 @@
         <Key android:codes="105" android:keyLabel="i" />
         <Key android:codes="111" android:keyLabel="o" />
         <Key android:codes="112" android:keyLabel="p" />
+        <Key android:codes="-105" android:keyWidth="12.45%p" />
     </Row>
-    <Row android:keyWidth="10.6%p">
+    <Row>
+        <Key android:codes="-105" android:keyWidth="8.3%p" />
         <Key android:codes="97" android:keyLabel="a" />
         <Key android:codes="115" android:keyLabel="s" />
         <Key android:codes="100" android:keyLabel="d" />
@@ -26,9 +44,16 @@
         <Key android:codes="106" android:keyLabel="j" />
         <Key android:codes="107" android:keyLabel="k" />
         <Key android:codes="108" android:keyLabel="l" />
+        <Key android:codes="-105" android:keyWidth="4.15%p" />
+        <Key android:codes="-104" android:keyIcon="@drawable/inline_keyboard_language" />
+        <Key android:codes="-105" android:keyWidth="4.15%p" />
     </Row>
     <Row>
-        <Key android:codes="-1" android:isModifier="true" android:keyLabel="⇧" android:keyWidth="12%p" />
+        <Key android:codes="-105" android:keyWidth="4.15%p" />
+        <Key
+            android:codes="-1"
+            android:isModifier="true"
+            android:keyIcon="@drawable/inline_keyboard_shift" />
         <Key android:codes="121" android:keyLabel="y" />
         <Key android:codes="120" android:keyLabel="x" />
         <Key android:codes="99" android:keyLabel="c" />
@@ -36,15 +61,24 @@
         <Key android:codes="98" android:keyLabel="b" />
         <Key android:codes="110" android:keyLabel="n" />
         <Key android:codes="109" android:keyLabel="m" />
-        <Key android:codes="-5" android:keyLabel="⌫" android:keyWidth="12%p" />
+        <Key android:codes="33" android:keyLabel="!" />
+        <Key android:codes="63" android:keyLabel="?" />
+        <Key android:codes="-5" android:keyIcon="@drawable/inline_keyboard_backspace" />
+        <Key android:codes="-105" android:keyWidth="4.15%p" />
     </Row>
     <Row>
-        <Key android:codes="-2" android:keyLabel="123" android:keyWidth="12%p" />
-        <Key android:codes="64" android:keyLabel="@" android:keyWidth="12%p" />
-        <Key android:codes="44" android:keyLabel="," android:keyWidth="7%p" />
-        <Key android:codes="32" android:keyLabel="Space" android:keyWidth="33%p" />
-        <Key android:codes="-102" android:keyLabel=".com" android:keyWidth="12%p" />
-        <Key android:codes="-4" android:keyLabel="Los" android:keyWidth="14%p" />
-        <Key android:codes="-3" android:keyLabel="⌄" android:keyWidth="10%p" />
+        <Key android:codes="-105" android:keyWidth="4.15%p" />
+        <Key android:codes="-3" android:keyIcon="@drawable/inline_keyboard_hide" />
+        <Key android:codes="-2" android:keyLabel="=&lt;" />
+        <Key android:codes="44" android:keyLabel="," />
+        <Key
+            android:codes="32"
+            android:keyIcon="@drawable/inline_keyboard_spacebar"
+            android:keyWidth="33.2%p" />
+        <Key android:codes="-105" android:keyWidth="8.3%p" />
+        <Key android:codes="-102" android:keyLabel="." />
+        <Key android:codes="45" android:keyLabel="-" />
+        <Key android:codes="-4" android:keyIcon="@drawable/inline_keyboard_done" />
+        <Key android:codes="-105" android:keyWidth="4.15%p" />
     </Row>
 </Keyboard>
