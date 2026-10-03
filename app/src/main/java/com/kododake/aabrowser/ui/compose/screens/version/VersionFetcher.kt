@@ -17,7 +17,8 @@
 
 package com.kododake.aabrowser.ui.compose.screens.version
 
-import android.app.Activity
+import android.os.Handler
+import android.os.Looper
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -25,10 +26,10 @@ import java.net.URL
 object VersionFetcher {
 
     fun fetchLatestVersion(
-        activity: Activity,
         onSuccess: (latestUrl: String, tagName: String) -> Unit,
         onError: () -> Unit
     ) {
+        val mainHandler = Handler(Looper.getMainLooper())
         Thread {
             try {
                 val url = URL("https://api.github.com/repos/kododake/AABrowser/releases/latest")
@@ -41,14 +42,14 @@ object VersionFetcher {
                     val latestUrl = json.getString("html_url")
                     val tag = json.getString("tag_name")
 
-                    activity.runOnUiThread {
+                    mainHandler.post {
                         onSuccess(latestUrl, tag)
                     }
                 } else {
-                    activity.runOnUiThread { onError() }
+                    mainHandler.post(onError)
                 }
             } catch (_: Exception) {
-                activity.runOnUiThread { onError() }
+                mainHandler.post(onError)
             }
         }.start()
     }

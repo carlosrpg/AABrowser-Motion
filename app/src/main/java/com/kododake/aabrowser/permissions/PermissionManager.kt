@@ -18,6 +18,7 @@
 package com.kododake.aabrowser.permissions
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.webkit.PermissionRequest
@@ -27,28 +28,36 @@ import androidx.core.content.ContextCompat
 import com.kododake.aabrowser.AppConstants
 import com.kododake.aabrowser.data.BrowserPreferences
 
-class PermissionManager(private val activity: AppCompatActivity) {
+class PermissionManager(
+    private val context: Context,
+    private val activity: AppCompatActivity?
+) {
 
-    private val dialogs = PermissionDialogs(activity)
-    private val geolocationHandler = GeolocationPermissionHandler(activity, dialogs)
+    private val dialogs = activity?.let(::PermissionDialogs)
+    private val geolocationHandler = if (activity != null && dialogs != null) {
+        GeolocationPermissionHandler(activity, dialogs)
+    } else {
+        null
+    }
 
     var pendingPermissionRequest: PermissionRequest? = null
     var pendingSpeechBridgeTabId: Long? = null
     var pendingGeolocationOrigin: String?
-        get() = geolocationHandler.pendingGeolocationOrigin
-        set(value) { geolocationHandler.pendingGeolocationOrigin = value }
+        get() = geolocationHandler?.pendingGeolocationOrigin
+        set(value) { geolocationHandler?.pendingGeolocationOrigin = value }
     var pendingGeolocationCallback: android.webkit.GeolocationPermissions.Callback?
-        get() = geolocationHandler.pendingGeolocationCallback
-        set(value) { geolocationHandler.pendingGeolocationCallback = value }
+        get() = geolocationHandler?.pendingGeolocationCallback
+        set(value) { geolocationHandler?.pendingGeolocationCallback = value }
 
-    val isShowingCleartextDialog: Boolean get() = dialogs.isShowingCleartextDialog
-    val isShowingMicrophoneDialog: Boolean get() = dialogs.isShowingMicrophoneDialog
-    val isShowingLocationDialog: Boolean get() = dialogs.isShowingLocationDialog
+    val isShowingCleartextDialog: Boolean get() = dialogs?.isShowingCleartextDialog == true
+    val isShowingMicrophoneDialog: Boolean get() = dialogs?.isShowingMicrophoneDialog == true
+    val isShowingLocationDialog: Boolean get() = dialogs?.isShowingLocationDialog == true
 
     fun ensureNotificationPermissionIfNeeded(requestCode: Int) {
+        val hostActivity = activity ?: return
         if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) return
-        if (ContextCompat.checkSelfPermission(activity, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return
-        ActivityCompat.requestPermissions(activity, arrayOf(Manifest.permission.POST_NOTIFICATIONS), requestCode)
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return
+        ActivityCompat.requestPermissions(hostActivity, arrayOf(Manifest.permission.POST_NOTIFICATIONS), requestCode)
     }
 
     private fun grantableWebPermissionResources(request: PermissionRequest): Array<String> {
@@ -75,7 +84,8 @@ class PermissionManager(private val activity: AppCompatActivity) {
     }
 
     private fun continueWebPermissionRequest(request: PermissionRequest, requestCode: Int) {
-        if (ContextCompat.checkSelfPermission(activity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+        val hostActivity = activity
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
             val grantable = grantableWebPermissionResources(request)
             if (grantable.isNotEmpty()) request.grant(grantable) else request.deny()
         } else {
@@ -83,7 +93,11 @@ class PermissionManager(private val activity: AppCompatActivity) {
                 denyAudioButAllowProtectedMediaIfPresent(oldRequest)
             }
             pendingPermissionRequest = request
-            ActivityCompat.requestPermissions(activity, arrayOf(Manifest.permission.RECORD_AUDIO), requestCode)
+            if (hostActivity != null) {
+                ActivityCompat.requestPermissions(hostActivity, arrayOf(Manifest.permission.RECORD_AUDIO), requestCode)
+            } else {
+                denyAudioButAllowProtectedMediaIfPresent(request)
+            }
         }
     }
 
@@ -99,22 +113,24 @@ class PermissionManager(private val activity: AppCompatActivity) {
         val scheme = origin?.scheme?.lowercase()
         val isSecure = scheme == "https" || host == "localhost" || host == "127.0.0.1" || scheme == "file"
 
-        if (PermissionRequest.RESOURCE_AUDIO_CAPTURE !in grantable || (isSecure && BrowserPreferences.isHostAllowedMicrophone(activity, host))) {
+        if (PermissionRequest.RESOURCE_AUDIO_CAPTURE !in grantable || (isSecure && BrowserPreferences.isHostAllowedMicrophone(context, host))) {
             continueWebPermissionRequest(request, requestCode)
             return
         }
 
-        if (activity.isFinishing || activity.isDestroyed || dialogs.isShowingMicrophoneDialog) {
+        val hostActivity = activity
+        val hostDialogs = dialogs
+        if (hostActivity == null || hostDialogs == null || hostActivity.isFinishing || hostActivity.isDestroyed || hostDialogs.isShowingMicrophoneDialog) {
             denyAudioButAllowProtectedMediaIfPresent(request)
             return
         }
 
-        dialogs.showMicrophoneAccessDialog(
+        hostDialogs.showMicrophoneAccessDialog(
             origin = origin,
             isSecure = isSecure,
             onAllowOnce = { continueWebPermissionRequest(request, requestCode) },
             onAllowHost = {
-                host?.let { BrowserPreferences.addAllowedMicrophoneHost(activity, it) }
+                host?.let { BrowserPreferences.addAllowedMicrophoneHost(context, it) }
                 continueWebPermissionRequest(request, requestCode)
             },
             onCancel = { denyAudioButAllowProtectedMediaIfPresent(request) }
@@ -128,22 +144,24 @@ class PermissionManager(private val activity: AppCompatActivity) {
         val isSecure = scheme == "https" || host == "localhost" || host == "127.0.0.1" || scheme == "file"
         pendingSpeechBridgeTabId = tabId
 
-        if (isSecure && BrowserPreferences.isHostAllowedMicrophone(activity, host)) {
+        if (isSecure && BrowserPreferences.isHostAllowedMicrophone(context, host)) {
             continueSpeechRecognitionMicrophoneAccess(onPermissionResult)
             return
         }
 
-        if (activity.isFinishing || activity.isDestroyed || dialogs.isShowingMicrophoneDialog) {
+        val hostActivity = activity
+        val hostDialogs = dialogs
+        if (hostActivity == null || hostDialogs == null || hostActivity.isFinishing || hostActivity.isDestroyed || hostDialogs.isShowingMicrophoneDialog) {
             onPermissionResult(false)
             return
         }
 
-        dialogs.showMicrophoneAccessDialog(
+        hostDialogs.showMicrophoneAccessDialog(
             origin = pageUri,
             isSecure = isSecure,
             onAllowOnce = { continueSpeechRecognitionMicrophoneAccess(onPermissionResult) },
             onAllowHost = {
-                host?.let { BrowserPreferences.addAllowedMicrophoneHost(activity, it) }
+                host?.let { BrowserPreferences.addAllowedMicrophoneHost(context, it) }
                 continueSpeechRecognitionMicrophoneAccess(onPermissionResult)
             },
             onCancel = {
@@ -154,16 +172,23 @@ class PermissionManager(private val activity: AppCompatActivity) {
     }
 
     private fun continueSpeechRecognitionMicrophoneAccess(onPermissionResult: (Boolean) -> Unit) {
-        if (ContextCompat.checkSelfPermission(activity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+        val hostActivity = activity
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
             onPermissionResult(true)
             pendingSpeechBridgeTabId = null
         } else {
-            ActivityCompat.requestPermissions(activity, arrayOf(Manifest.permission.RECORD_AUDIO), AppConstants.REQUEST_CODE_RECORD_AUDIO)
+            if (hostActivity != null) {
+                ActivityCompat.requestPermissions(hostActivity, arrayOf(Manifest.permission.RECORD_AUDIO), AppConstants.REQUEST_CODE_RECORD_AUDIO)
+            } else {
+                onPermissionResult(false)
+                pendingSpeechBridgeTabId = null
+            }
         }
     }
 
     fun handleGeolocationPermissionRequest(origin: String?, callback: android.webkit.GeolocationPermissions.Callback?) {
-        geolocationHandler.handleGeolocationPermissionRequest(origin, callback)
+        geolocationHandler?.handleGeolocationPermissionRequest(origin, callback)
+            ?: callback?.invoke(origin, false, false)
     }
 
     fun showLocationUpgradeDialog(
@@ -172,7 +197,7 @@ class PermissionManager(private val activity: AppCompatActivity) {
         onKeepApproximate: () -> Unit,
         onCancel: () -> Unit
     ) {
-        dialogs.showLocationUpgradeDialog(origin, onUpgrade, onKeepApproximate, onCancel)
+        dialogs?.showLocationUpgradeDialog(origin, onUpgrade, onKeepApproximate, onCancel) ?: onCancel()
     }
 
     fun showLocationAccessDialog(
@@ -182,7 +207,7 @@ class PermissionManager(private val activity: AppCompatActivity) {
         onAllowHost: () -> Unit,
         onCancel: () -> Unit
     ) {
-        dialogs.showLocationAccessDialog(origin, isSecure, onAllowOnce, onAllowHost, onCancel)
+        dialogs?.showLocationAccessDialog(origin, isSecure, onAllowOnce, onAllowHost, onCancel) ?: onCancel()
     }
 
     fun showMicrophoneAccessDialog(
@@ -192,7 +217,7 @@ class PermissionManager(private val activity: AppCompatActivity) {
         onAllowHost: () -> Unit,
         onCancel: () -> Unit
     ) {
-        dialogs.showMicrophoneAccessDialog(origin, isSecure, onAllowOnce, onAllowHost, onCancel)
+        dialogs?.showMicrophoneAccessDialog(origin, isSecure, onAllowOnce, onAllowHost, onCancel) ?: onCancel()
     }
 
     fun showCleartextNavigationDialog(
@@ -201,7 +226,7 @@ class PermissionManager(private val activity: AppCompatActivity) {
         onAllowHost: () -> Unit,
         onCancel: () -> Unit
     ) {
-        dialogs.showCleartextNavigationDialog(uri, onAllowOnce, onAllowHost, onCancel)
+        dialogs?.showCleartextNavigationDialog(uri, onAllowOnce, onAllowHost, onCancel) ?: onCancel()
     }
 
     fun handleRequestPermissionsResult(
@@ -225,7 +250,7 @@ class PermissionManager(private val activity: AppCompatActivity) {
             onRecordAudioGranted(granted)
             pendingSpeechBridgeTabId = null
         } else if (requestCode == AppConstants.REQUEST_CODE_ACCESS_LOCATION) {
-            geolocationHandler.handlePermissionResult()
+            geolocationHandler?.handlePermissionResult()
         }
     }
 }

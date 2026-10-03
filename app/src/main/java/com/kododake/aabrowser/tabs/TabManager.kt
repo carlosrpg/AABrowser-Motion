@@ -18,8 +18,8 @@
 package com.kododake.aabrowser.tabs
 
 import android.view.View
+import android.content.Context
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.mutableStateOf
 import com.kododake.aabrowser.R
 import com.kododake.aabrowser.bookmarks.BookmarkIconUtils
@@ -34,7 +34,7 @@ import com.kododake.aabrowser.web.updateDesktopMode
 import com.kododake.aabrowser.web.updateUserAgentProfile
 
 class TabManager(
-    private val activity: AppCompatActivity,
+    private val context: Context,
     private val binding: ActivityMainBinding,
     private val bookmarkManager: BookmarkManager,
     private val callbacks: TabCallbacks
@@ -60,7 +60,7 @@ class TabManager(
     }
 
     private fun setupComposeTabs() {
-        TabComposeHelper.setupComposeTabs(this, activity, binding, callbacks)
+        TabComposeHelper.setupComposeTabs(this, context, binding, callbacks)
     }
 
     fun initializeTabs(
@@ -72,7 +72,7 @@ class TabManager(
         shouldForceSessionRestore: Boolean
     ) {
         TabInitializer.initialize(
-            context = activity,
+            context = context,
             intentUrl = intentUrl,
             homePageUrl = homePageUrl,
             lastVisitedUrl = lastVisitedUrl,
@@ -90,14 +90,14 @@ class TabManager(
 
     fun createBrowserTab(initialUrl: String?, initialTitle: String = "", activate: Boolean): BrowserTab? {
         if (browserTabs.size >= BrowserPreferences.MAX_OPEN_TABS) {
-            val message = activity.getString(R.string.tab_manager_max_tabs, BrowserPreferences.MAX_OPEN_TABS)
-            Toast.makeText(activity, message, Toast.LENGTH_SHORT).show()
+            val message = context.getString(R.string.tab_manager_max_tabs, BrowserPreferences.MAX_OPEN_TABS)
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             refreshTabs()
             return null
         }
 
         val tab = BrowserTabFactory.createTab(
-            context = activity,
+            context = context,
             tabId = nextTabId++,
             initialUrl = initialUrl,
             initialTitle = initialTitle,
@@ -122,8 +122,8 @@ class TabManager(
     }
 
     fun createNewTab(activate: Boolean): BrowserTab? {
-        val initialUrl = BrowserPreferences.getHomePageUrl(activity)
-        return createBrowserTab(initialUrl, if (initialUrl.isNullOrBlank()) activity.getString(R.string.tab_manager_blank_title) else "", activate)
+        val initialUrl = BrowserPreferences.getHomePageUrl(context)
+        return createBrowserTab(initialUrl, if (initialUrl.isNullOrBlank()) context.getString(R.string.tab_manager_blank_title) else "", activate)
     }
 
     fun switchToTab(tabId: Long) {
@@ -166,7 +166,7 @@ class TabManager(
     }
 
     fun persistTabSession() {
-        TabStateStore.persistTabSession(activity, browserTabs, activeTabId)
+        TabStateStore.persistTabSession(context, browserTabs, activeTabId)
     }
 
     fun refreshTabs() {
@@ -184,7 +184,7 @@ class TabManager(
         return when {
             tab.currentTitle.isNotBlank() -> tab.currentTitle
             tab.currentUrl.isNotBlank() -> bookmarkManager.displayTitleForUrl(tab.currentUrl)
-            else -> activity.getString(R.string.tab_manager_blank_title)
+            else -> context.getString(R.string.tab_manager_blank_title)
         }
     }
 
@@ -272,7 +272,7 @@ class TabManager(
     }
 
     fun resetActiveTabSession(newUrl: String): BrowserTab? =
-        TabSessionResetter.resetActiveTab(activity, binding, browserTabs, activeTabId, callbacks, newUrl)
+        TabSessionResetter.resetActiveTab(context, binding, browserTabs, activeTabId, callbacks, newUrl)
 
     fun destroy() {
         browserTabs.forEach { tab ->

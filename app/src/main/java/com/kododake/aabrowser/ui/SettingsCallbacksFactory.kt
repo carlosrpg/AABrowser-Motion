@@ -17,7 +17,7 @@
 
 package com.kododake.aabrowser.ui
 
-import androidx.appcompat.app.AppCompatActivity
+import android.content.Context
 import com.kododake.aabrowser.data.BrowserPreferences
 import com.kododake.aabrowser.settings.SettingsCallbacks
 import com.kododake.aabrowser.startpage.StartPageManager
@@ -27,7 +27,7 @@ import com.kododake.aabrowser.web.updateDrmL3Enforcer
 object SettingsCallbacksFactory {
 
     fun create(
-        activity: AppCompatActivity,
+        context: Context,
         tabManager: TabManager,
         startPageManager: StartPageManager,
         uiManager: BrowserUIManager,
@@ -40,14 +40,14 @@ object SettingsCallbacksFactory {
             onDismiss = onDismiss,
             onThemeChanged = { callbacks.onRecreateRequested() },
             onDrmL3EnforcerChanged = {
-                val enabled = BrowserPreferences.isDrmL3EnforcerEnabled(activity)
+                val enabled = BrowserPreferences.isDrmL3EnforcerEnabled(context)
                 tabManager.browserTabs.forEach { tab ->
                     tab.webView.updateDrmL3Enforcer(enabled)
                 }
             },
             onUserAgentChanged = {
-                val profile = BrowserPreferences.getUserAgentProfile(activity)
-                val desktop = BrowserPreferences.shouldUseDesktopMode(activity)
+                val profile = BrowserPreferences.getUserAgentProfile(context)
+                val desktop = BrowserPreferences.shouldUseDesktopMode(context)
                 tabManager.updateUserAgentProfile(profile, desktop)
             },
             onScaleChanged = { callbacks.onRecreateRequested() },

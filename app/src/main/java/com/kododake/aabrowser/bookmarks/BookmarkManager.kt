@@ -18,6 +18,7 @@
 package com.kododake.aabrowser.bookmarks
 
 import android.graphics.Bitmap
+import android.content.Context
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -32,7 +33,8 @@ import com.kododake.aabrowser.ui.compose.screens.bookmarks.BookmarkItemUi
 import com.kododake.aabrowser.ui.compose.screens.bookmarks.BookmarkManagerSheet
 
 class BookmarkManager(
-    private val activity: AppCompatActivity,
+    private val context: Context,
+    private val activity: AppCompatActivity?,
     private val binding: ActivityMainBinding,
     private val callbacks: BookmarkCallbacks
 ) {
@@ -65,7 +67,7 @@ class BookmarkManager(
     internal val currentUrlState = mutableStateOf("")
 
     init {
-        BrowserPreferences.ensureGameBookmarkMigrated(activity)
+        BrowserPreferences.ensureGameBookmarkMigrated(context)
         setupComposeBookmarks()
     }
 
@@ -103,7 +105,7 @@ class BookmarkManager(
     }
 
     fun commitBookmarkReorder() {
-        BrowserPreferences.setBookmarks(activity, bookmarksState.value.map { it.url })
+        BrowserPreferences.setBookmarks(context, bookmarksState.value.map { it.url })
         callbacks.onRefreshStartPage()
     }
 
@@ -128,26 +130,26 @@ class BookmarkManager(
         val isStartPage = callbacks.isShowingStartPage()
 
         if (!isActiveWebsiteUrl(url) || isStartPage) {
-            val message = activity.getString(R.string.start_page_add_current_unavailable)
-            Toast.makeText(activity, message, Toast.LENGTH_SHORT).show()
+            val message = context.getString(R.string.start_page_add_current_unavailable)
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             return
         }
 
         val pageTitle = callbacks.getCurrentPageTitle().trim().ifBlank { displayTitleForUrl(url) }
-        if (BrowserPreferences.addBookmark(activity, url, pageTitle)) {
-            val message = activity.getString(R.string.bookmark_added)
-            Toast.makeText(activity, message, Toast.LENGTH_SHORT).show()
+        if (BrowserPreferences.addBookmark(context, url, pageTitle)) {
+            val message = context.getString(R.string.bookmark_added)
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             refreshBookmarks()
         } else {
-            val message = activity.getString(R.string.bookmark_exists)
-            Toast.makeText(activity, message, Toast.LENGTH_SHORT).show()
+            val message = context.getString(R.string.bookmark_exists)
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         }
     }
 
     fun removeBookmark(url: String) {
-        if (BrowserPreferences.removeBookmark(activity, url)) {
-            val message = activity.getString(R.string.bookmark_removed)
-            Toast.makeText(activity, message, Toast.LENGTH_SHORT).show()
+        if (BrowserPreferences.removeBookmark(context, url)) {
+            val message = context.getString(R.string.bookmark_removed)
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             refreshBookmarks()
             callbacks.onRefreshStartPage()
         }
@@ -159,19 +161,19 @@ class BookmarkManager(
 
     fun resolveBookmarkTitle(url: String): String {
         val target = url.trim().trimEnd('/')
-        return BrowserPreferences.getBookmarkEntries(activity)
+        return BrowserPreferences.getBookmarkEntries(context)
             .firstOrNull { it.url.trim().trimEnd('/') == target }
             ?.title?.takeIf { it.isNotBlank() } ?: displayTitleForUrl(url)
     }
 
     fun prefetchSiteIcon(url: String?) {
-        BookmarkIconUtils.prefetchSiteIcon(activity, url) {
+        BookmarkIconUtils.prefetchSiteIcon(context, url) {
             if (callbacks.isShowingStartPage()) callbacks.onRefreshStartPage()
             refreshBookmarks()
         }
     }
 
-    fun resolveCachedSiteIcon(url: String?): Bitmap? = BookmarkIconUtils.resolveCachedSiteIcon(activity, url) {
+    fun resolveCachedSiteIcon(url: String?): Bitmap? = BookmarkIconUtils.resolveCachedSiteIcon(context, url) {
         refreshBookmarks()
     }
 
@@ -183,7 +185,7 @@ class BookmarkManager(
         backgroundColor: Int,
         showAddOnEmptyUrl: Boolean = false
     ): View = BookmarkIconUtils.createSiteIconBadge(
-        context = activity,
+        context = context,
         url = url,
         sizeDp = sizeDp,
         cornerRadiusDp = cornerRadiusDp,
@@ -199,8 +201,8 @@ class BookmarkManager(
         canAddCurrentUrlState.value = canUseCurrentPage
         currentUrlState.value = currentUrl
 
-        val entries = BrowserPreferences.getBookmarkEntries(activity)
-        val slots = BrowserPreferences.getStartPageSlots(activity)
+        val entries = BrowserPreferences.getBookmarkEntries(context)
+        val slots = BrowserPreferences.getStartPageSlots(context)
 
         bookmarksState.value = entries.map { entry ->
             val slotIndex = slots.indexOf(entry.url)
@@ -216,20 +218,21 @@ class BookmarkManager(
         val newTitle = title.trim()
         if (newTitle.isBlank()) return
         val target = url.trim().trimEnd('/')
-        val entries = BrowserPreferences.getBookmarkEntries(activity)
+        val entries = BrowserPreferences.getBookmarkEntries(context)
         val existing = entries.firstOrNull { it.url.trim().trimEnd('/') == target } ?: return
         val fallback = displayTitleForUrl(url)
         val canUpgrade = existing.title.isBlank() || existing.title.equals(fallback, true) ||
             existing.title == "ゲーム" || (existing.title != newTitle && !newTitle.equals(fallback, true))
-        if (canUpgrade && BrowserPreferences.updateBookmarkTitle(activity, existing.url, newTitle)) {
+        if (canUpgrade && BrowserPreferences.updateBookmarkTitle(context, existing.url, newTitle)) {
             refreshBookmarks()
             callbacks.onRefreshStartPage()
         }
     }
 
     fun showStartPageSlotPicker(url: String) {
+        val hostActivity = activity ?: return
         StartPageSlotPickerDialog.show(
-            activity = activity,
+            activity = hostActivity,
             url = url,
             isHomePageEnabled = callbacks.isHomePageEnabled(),
             onSlotChanged = {
@@ -242,11 +245,11 @@ class BookmarkManager(
     fun setCurrentPageAsHomePage() {
         val url = callbacks.getCurrentUrl().trim()
         if (!isActiveWebsiteUrl(url) || callbacks.isShowingStartPage()) {
-            Toast.makeText(activity, R.string.home_page_unavailable, Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, R.string.home_page_unavailable, Toast.LENGTH_SHORT).show()
             return
         }
-        BrowserPreferences.setHomePageUrl(activity, url)
-        Toast.makeText(activity, R.string.home_page_set, Toast.LENGTH_SHORT).show()
+        BrowserPreferences.setHomePageUrl(context, url)
+        Toast.makeText(context, R.string.home_page_set, Toast.LENGTH_SHORT).show()
         callbacks.handleHomePagePreferenceChanged()
     }
 }

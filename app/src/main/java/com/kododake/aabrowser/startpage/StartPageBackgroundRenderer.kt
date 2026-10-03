@@ -27,10 +27,8 @@ import android.graphics.drawable.LayerDrawable
 import android.net.Uri
 import android.view.View
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.graphics.ColorUtils
-import androidx.lifecycle.lifecycleScope
 import com.kododake.aabrowser.R
 import com.kododake.aabrowser.data.BrowserPreferences
 import com.kododake.aabrowser.databinding.ActivityMainBinding
@@ -40,7 +38,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class StartPageBackgroundRenderer(
-    private val activity: AppCompatActivity,
+    private val context: Context,
+    private val coroutineScope: kotlinx.coroutines.CoroutineScope,
     private val binding: ActivityMainBinding,
     private val resolveThemeColor: (Int) -> Int
 ) {
@@ -61,7 +60,7 @@ class StartPageBackgroundRenderer(
 
     fun refreshStartPageBackground() {
         applyDynamicStartPageGradientBackground()
-        val backgroundUri = BrowserPreferences.getStartPageBackgroundUri(activity)
+        val backgroundUri = BrowserPreferences.getStartPageBackgroundUri(context)
 
         if (backgroundUri.isNullOrBlank()) {
             clearBackground()
@@ -76,11 +75,11 @@ class StartPageBackgroundRenderer(
 
         backgroundLoadJob?.cancel()
         val uriToLoad = Uri.parse(backgroundUri)
-        val metrics = activity.resources.displayMetrics
+        val metrics = context.resources.displayMetrics
         val reqWidth = metrics.widthPixels.coerceAtLeast(1)
         val reqHeight = metrics.heightPixels.coerceAtLeast(1)
 
-        backgroundLoadJob = activity.lifecycleScope.launch {
+        backgroundLoadJob = coroutineScope.launch {
             val bitmap = withContext(Dispatchers.IO) {
                 decodeSampledBitmapFromUri(uriToLoad, reqWidth, reqHeight)
             }
@@ -115,7 +114,7 @@ class StartPageBackgroundRenderer(
         val secondaryContainer = resolveThemeColor(com.google.android.material.R.attr.colorSecondaryContainer)
         val tertiaryContainer = resolveThemeColor(com.google.android.material.R.attr.colorTertiaryContainer)
 
-        val isDark = (activity.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val isDark = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
         val signature = baseSurface xor primaryContainer xor secondaryContainer xor tertiaryContainer xor (if (isDark) 1 else 0)
         if (cachedStartPageGradientSignature == signature) {
             return
@@ -139,7 +138,7 @@ class StartPageBackgroundRenderer(
             gradientType = GradientDrawable.LINEAR_GRADIENT
         }
 
-        val density = activity.resources.displayMetrics.density
+        val density = context.resources.displayMetrics.density
         val ambientAlpha = if (isDark) (255 * 0.35f).toInt() else (255 * 0.45f).toInt()
         val ambientBlob = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
@@ -156,7 +155,7 @@ class StartPageBackgroundRenderer(
     private fun decodeSampledBitmapFromUri(uri: Uri, reqWidth: Int, reqHeight: Int): Bitmap? {
         val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         runCatching {
-            activity.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+            context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
         }
         if (options.outWidth <= 0 || options.outHeight <= 0) {
             return null
@@ -167,7 +166,7 @@ class StartPageBackgroundRenderer(
         options.inPreferredConfig = Bitmap.Config.RGB_565
 
         return runCatching {
-            activity.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+            context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
         }.getOrNull()
     }
 
@@ -185,25 +184,25 @@ class StartPageBackgroundRenderer(
 
     fun handleStartPageBackgroundPicked(uri: Uri?, onRefreshNeeded: () -> Unit) {
         if (uri == null) return
-        if (activity.contentResolver.openInputStream(uri)?.use { true } != true) {
-            Toast.makeText(activity, R.string.start_page_background_error, Toast.LENGTH_SHORT).show()
+        if (context.contentResolver.openInputStream(uri)?.use { true } != true) {
+            Toast.makeText(context, R.string.start_page_background_error, Toast.LENGTH_SHORT).show()
             return
         }
-        runCatching { activity.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
-        val prev = BrowserPreferences.getStartPageBackgroundUri(activity)
-        BrowserPreferences.setStartPageBackgroundUri(activity, uri.toString())
+        runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+        val prev = BrowserPreferences.getStartPageBackgroundUri(context)
+        BrowserPreferences.setStartPageBackgroundUri(context, uri.toString())
         if (!prev.isNullOrBlank() && prev != uri.toString()) {
-            runCatching { activity.contentResolver.releasePersistableUriPermission(Uri.parse(prev), Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            runCatching { context.contentResolver.releasePersistableUriPermission(Uri.parse(prev), Intent.FLAG_GRANT_READ_URI_PERMISSION) }
         }
         onRefreshNeeded()
-        Toast.makeText(activity, R.string.start_page_background_set, Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, R.string.start_page_background_set, Toast.LENGTH_SHORT).show()
     }
 
     fun clearStartPageBackground(onRefreshNeeded: () -> Unit) {
-        val prev = BrowserPreferences.getStartPageBackgroundUri(activity) ?: return
-        runCatching { activity.contentResolver.releasePersistableUriPermission(Uri.parse(prev), Intent.FLAG_GRANT_READ_URI_PERMISSION) }
-        BrowserPreferences.clearStartPageBackgroundUri(activity)
+        val prev = BrowserPreferences.getStartPageBackgroundUri(context) ?: return
+        runCatching { context.contentResolver.releasePersistableUriPermission(Uri.parse(prev), Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+        BrowserPreferences.clearStartPageBackgroundUri(context)
         onRefreshNeeded()
-        Toast.makeText(activity, R.string.start_page_background_cleared, Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, R.string.start_page_background_cleared, Toast.LENGTH_SHORT).show()
     }
 }

@@ -18,10 +18,10 @@
 package com.kododake.aabrowser.startpage
 
 import android.content.Intent
+import android.content.Context
 import android.net.Uri
 import android.view.View
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.mutableStateOf
 import com.kododake.aabrowser.R
 import com.kododake.aabrowser.bookmarks.BookmarkManager
@@ -31,9 +31,11 @@ import com.kododake.aabrowser.ui.QRUtils
 import com.kododake.aabrowser.ui.compose.screens.startpage.StartPageScreenCallbacks
 import com.kododake.aabrowser.ui.compose.screens.startpage.StartPageSlotUi
 import com.kododake.aabrowser.ui.compose.screens.startpage.StartPageViews
+import kotlinx.coroutines.CoroutineScope
 
 class StartPageManager(
-    private val activity: AppCompatActivity,
+    private val context: Context,
+    private val coroutineScope: CoroutineScope,
     private val binding: ActivityMainBinding,
     private val bookmarkManager: BookmarkManager,
     private val callbacks: StartPageCallbacks
@@ -58,7 +60,8 @@ class StartPageManager(
     var isStartPagePhotoOnlyMode: Boolean = false
 
     private val backgroundRenderer = StartPageBackgroundRenderer(
-        activity = activity,
+        context = context,
+        coroutineScope = coroutineScope,
         binding = binding,
         resolveThemeColor = callbacks::resolveThemeColor
     )
@@ -83,7 +86,7 @@ class StartPageManager(
 
     private fun ensureComposeStartPagePopulated() {
         if (composeStartPageView == null) {
-            val slots = BrowserPreferences.getStartPageSlots(activity).mapIndexed { index, url ->
+            val slots = BrowserPreferences.getStartPageSlots(context).mapIndexed { index, url ->
                 val cleanUrl = url.orEmpty()
                 val title = if (cleanUrl.isNotBlank()) bookmarkManager.resolveBookmarkTitle(cleanUrl) else ""
                 val label = if (cleanUrl.isNotBlank()) bookmarkManager.displayLabelForUrl(cleanUrl) else ""
@@ -95,7 +98,7 @@ class StartPageManager(
                     label = label
                 )
             }
-            val hasResumePage = !BrowserPreferences.getLastVisitedUrl(activity).isNullOrBlank()
+            val hasResumePage = !BrowserPreferences.getLastVisitedUrl(context).isNullOrBlank()
             val qrBitmap = QRUtils.generateQrCode("https://github.com/sponsors/kododake", 200)
 
             val screenCallbacks = StartPageScreenCallbacks(
@@ -109,19 +112,19 @@ class StartPageManager(
                     }
                 },
                 onMoveSlot = { fromIdx, toIdx ->
-                    val currentSlots = BrowserPreferences.getStartPageSlots(activity).toMutableList()
+                    val currentSlots = BrowserPreferences.getStartPageSlots(context).toMutableList()
                     if (fromIdx in currentSlots.indices && toIdx in currentSlots.indices && fromIdx != toIdx) {
                         val moved = currentSlots.removeAt(fromIdx)
                         currentSlots.add(toIdx, moved)
-                        BrowserPreferences.setStartPageSlots(activity, currentSlots)
+                        BrowserPreferences.setStartPageSlots(context, currentSlots)
                     }
                 },
                 onClearSlot = { idx ->
-                    BrowserPreferences.clearStartPageSlot(activity, idx)
+                    BrowserPreferences.clearStartPageSlot(context, idx)
                     refreshStartPage()
                 },
                 onResumeClick = {
-                    val last = BrowserPreferences.getLastVisitedUrl(activity)
+                    val last = BrowserPreferences.getLastVisitedUrl(context)
                     if (!last.isNullOrBlank()) {
                         callbacks.loadUrlFromIntent(last)
                     }
@@ -134,15 +137,15 @@ class StartPageManager(
                     try {
                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
                         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        activity.startActivity(intent)
+                        context.startActivity(intent)
                     } catch (_: Exception) {
-                        Toast.makeText(activity, R.string.error_generic_message, Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, R.string.error_generic_message, Toast.LENGTH_SHORT).show()
                     }
                 }
             )
 
             val view = StartPageViews.createStartPageContent(
-                context = activity,
+                context = context,
                 slots = slots,
                 hasResumePage = hasResumePage,
                 sponsorsQrBitmap = qrBitmap,
@@ -174,10 +177,10 @@ class StartPageManager(
     fun finishNavigationLoading() = navigationLoader.finishLoading()
 
     fun showStartPage() {
-        val homePageUrl = BrowserPreferences.getHomePageUrl(activity)
+        val homePageUrl = BrowserPreferences.getHomePageUrl(context)
         if (!homePageUrl.isNullOrBlank()) {
-            val message = activity.getString(R.string.start_page_disabled_by_home_page)
-            Toast.makeText(activity, message, Toast.LENGTH_SHORT).show()
+            val message = context.getString(R.string.start_page_disabled_by_home_page)
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             callbacks.loadUrlFromIntent(homePageUrl)
             return
         }
@@ -214,7 +217,7 @@ class StartPageManager(
     fun applyStartPagePhotoOnlyMode() {
         val visibility = if (isStartPagePhotoOnlyMode) View.GONE else View.VISIBLE
         composeStartPageView?.visibility = visibility
-        val hasCustomBg = !BrowserPreferences.getStartPageBackgroundUri(activity).isNullOrBlank()
+        val hasCustomBg = !BrowserPreferences.getStartPageBackgroundUri(context).isNullOrBlank()
         binding.startPageDimOverlay.visibility = if (hasCustomBg && !isStartPagePhotoOnlyMode) View.VISIBLE else View.GONE
 
         if (!isStartPagePhotoOnlyMode && isShowingStartPage) {

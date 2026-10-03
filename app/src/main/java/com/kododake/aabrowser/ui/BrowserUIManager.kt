@@ -18,8 +18,10 @@
 package com.kododake.aabrowser.ui
 
 import android.content.Intent
+import android.content.Context
 import android.net.Uri
 import android.view.View
+import android.view.Window
 import android.webkit.WebChromeClient
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -38,7 +40,8 @@ import com.kododake.aabrowser.ui.controllers.FullscreenController
 import com.kododake.aabrowser.ui.controllers.MenuDragGestureHelper
 
 class BrowserUIManager(
-    private val activity: AppCompatActivity,
+    private val context: Context,
+    private val window: Window?,
     private val binding: ActivityMainBinding,
     private val tabManager: TabManager,
     private val bookmarkManager: BookmarkManager,
@@ -57,7 +60,8 @@ class BrowserUIManager(
     }
 
     private val fullscreenController = FullscreenController(
-        activity = activity,
+        context = context,
+        window = window,
         binding = binding,
         onFullscreenChanged = { }
     )
@@ -93,11 +97,11 @@ class BrowserUIManager(
     }
 
     fun applyQuickActionButtonPreferences() {
-        val mode = BrowserPreferences.getQuickActionButtonMode(activity)
+        val mode = BrowserPreferences.getQuickActionButtonMode(context)
         menuHelper.setFabMode(mode == QuickActionButtonMode.ADDRESS_BAR)
-        val density = activity.resources.displayMetrics.density
+        val density = context.resources.displayMetrics.density
         val margin = (16 * density).toInt()
-        val position = BrowserPreferences.getQuickActionButtonPosition(activity)
+        val position = BrowserPreferences.getQuickActionButtonPosition(context)
         val layoutParams = binding.fabComposeView.layoutParams as CoordinatorLayout.LayoutParams
         layoutParams.gravity = when (position) {
             QuickActionButtonPosition.BOTTOM_LEFT -> android.view.Gravity.BOTTOM or android.view.Gravity.START
@@ -109,7 +113,7 @@ class BrowserUIManager(
         layoutParams.setMargins(margin, margin, margin, margin)
         binding.fabComposeView.layoutParams = layoutParams
 
-        val alwaysVisible = BrowserPreferences.isQuickActionButtonAlwaysVisible(activity)
+        val alwaysVisible = BrowserPreferences.isQuickActionButtonAlwaysVisible(context)
         if ((startPageManager.isShowingStartPage || alwaysVisible) && !isInFullscreen() && !binding.menuOverlay.isVisible) {
             menuHelper.showFab()
         }
@@ -156,13 +160,13 @@ class BrowserUIManager(
     fun applyFrostedGlassProgress(progress: Float) {
         val p = progress.coerceIn(0f, 1f)
         if (p > 0.001f) {
-            val isDark = (activity.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            val isDark = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
             val tintedColor = getTintedMonetColor(isDark)
             val maxAlpha = if (isDark) 0x6E else 0x54
             binding.commonScrimView.setBackgroundColor(androidx.core.graphics.ColorUtils.setAlphaComponent(tintedColor, (maxAlpha * p).toInt()))
             binding.commonScrimView.alpha = 1f
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                val density = activity.resources.displayMetrics.density
+                val density = context.resources.displayMetrics.density
                 val currentBlur = (12f * density).coerceIn(12f, 32f) * p
                 if (currentBlur > 1f) {
                     if (kotlin.math.abs(currentBlur - lastAppliedBlur) >= 0.5f || p >= 0.99f) {
@@ -187,7 +191,7 @@ class BrowserUIManager(
 
     private fun resolveMonetThemeColors(isDark: Boolean): Pair<Int, Int> {
         return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-            val cs = if (isDark) androidx.compose.material3.dynamicDarkColorScheme(activity) else androidx.compose.material3.dynamicLightColorScheme(activity)
+            val cs = if (isDark) androidx.compose.material3.dynamicDarkColorScheme(context) else androidx.compose.material3.dynamicLightColorScheme(context)
             cs.surfaceContainer.toArgb() to cs.primary.toArgb()
         } else {
             val cs = if (isDark) com.kododake.aabrowser.ui.compose.theme.DarkPurpleColorScheme else com.kododake.aabrowser.ui.compose.theme.LightPurpleColorScheme
@@ -218,8 +222,8 @@ class BrowserUIManager(
 
     fun openUriExternally(uri: Uri) {
         runCatching {
-            activity.startActivity(Intent(Intent.ACTION_VIEW, uri).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
-        }.onFailure { Toast.makeText(activity, R.string.error_open_external, Toast.LENGTH_SHORT).show() }
+            context.startActivity(Intent(Intent.ACTION_VIEW, uri).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
+        }.onFailure { Toast.makeText(context, R.string.error_open_external, Toast.LENGTH_SHORT).show() }
     }
 
     fun sanitizeJsExternalUrl(sourceWebView: android.webkit.WebView, rawUrl: String?): Uri? {

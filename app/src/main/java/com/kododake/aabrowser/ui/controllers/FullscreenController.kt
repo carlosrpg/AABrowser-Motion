@@ -17,18 +17,20 @@
 
 package com.kododake.aabrowser.ui.controllers
 
+import android.content.Context
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.view.Window
 import android.webkit.WebChromeClient
 import android.widget.FrameLayout
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.kododake.aabrowser.databinding.ActivityMainBinding
 
 class FullscreenController(
-    private val activity: AppCompatActivity,
+    private val context: Context,
+    private val window: Window?,
     private val binding: ActivityMainBinding,
     private val onFullscreenChanged: (Boolean) -> Unit
 ) {
@@ -48,7 +50,8 @@ class FullscreenController(
 
     fun updateSystemBars() {
         val shouldHide = (customView != null) || isImmersiveMode
-        val controller = WindowInsetsControllerCompat(activity.window, binding.root)
+        val hostWindow = window ?: return
+        val controller = WindowInsetsControllerCompat(hostWindow, binding.root)
         controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         if (shouldHide) {
             controller.hide(WindowInsetsCompat.Type.systemBars())
@@ -80,7 +83,7 @@ class FullscreenController(
             bringToFront()
         }
 
-        activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         updateSystemBars()
         onFullscreenChanged(true)
     }
@@ -98,7 +101,7 @@ class FullscreenController(
 
         onRestoreView()
 
-        activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         val callback = customViewCallback
         customView = null

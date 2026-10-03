@@ -54,9 +54,9 @@ object LicenseSettingsSection {
             setTextColor(builder.onSurfaceColor)
             setPadding(0, 0, 0, builder.dp(8))
         })
-        val viewKododakeButton = builder.createListButton(
-            R.id.ViewKododakeButton,
-            context.getString(R.string.kododake_name),
+        val viewDeveloperButton = builder.createListButton(
+            R.id.viewDeveloperButton,
+            context.getString(R.string.developer_name),
             R.drawable.ic_github
         )
         val viewLicenseButton = builder.createListButton(
@@ -80,7 +80,9 @@ object LicenseSettingsSection {
             }
         }
 
-        viewKododakeButton.setOnClickListener { openUrl("https://github.com/kododake") }
+        viewDeveloperButton.setOnClickListener {
+            openUrl("https://github.com/carlosrpg/AABrowser-Motion")
+        }
         viewLicenseButton.setOnClickListener { openUrl("https://www.gnu.org/licenses/gpl-3.0.html") }
         viewOssLicensesButton.setOnClickListener {
             try {
@@ -93,7 +95,7 @@ object LicenseSettingsSection {
             }
         }
 
-        licenseInner.addView(viewKododakeButton)
+        licenseInner.addView(viewDeveloperButton)
         licenseInner.addView(viewLicenseButton)
         licenseInner.addView(viewOssLicensesButton)
         licenseCard.addView(licenseInner)

@@ -14,7 +14,7 @@
     <item name="buttonClearSitePermissions" type="id" />
     <item name="buttonClearCookies" type="id" />
     <item name="buttonClearHttpHosts" type="id" />
-    <item name="ViewKododakeButton" type="id" />
+    <item name="viewDeveloperButton" type="id" />
     <item name="viewLicenseButton" type="id" />
     <item name="viewOssLicensesButton" type="id" />
     <item name="buttonQrCopy" type="id" />

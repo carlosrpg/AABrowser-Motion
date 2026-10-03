@@ -24,10 +24,8 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.view.View
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.view.isVisible
-import androidx.lifecycle.lifecycleScope
 import com.kododake.aabrowser.BuildConfig
 import com.kododake.aabrowser.R
 import com.kododake.aabrowser.bookmarks.BookmarkManager
@@ -40,9 +38,11 @@ import com.kododake.aabrowser.ui.compose.screens.share.QrViews
 import com.kododake.aabrowser.ui.compose.screens.version.VersionFetcher
 import com.kododake.aabrowser.ui.compose.screens.version.VersionViews
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CoroutineScope
 
 class OverlayManager(
-    private val activity: AppCompatActivity,
+    private val context: Context,
+    private val coroutineScope: CoroutineScope,
     private val binding: ActivityMainBinding,
     private val tabManager: TabManager,
     private val bookmarkManager: BookmarkManager,
@@ -91,9 +91,9 @@ class OverlayManager(
             qrBitmapState = qrBitmapState,
             animateEnterProvider = { true },
             onCopyUrl = {
-                val clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
                 clipboard?.setPrimaryClip(ClipData.newPlainText("URL", qrUrlState.value))
-                Toast.makeText(activity, "URL copied", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "URL copied", Toast.LENGTH_SHORT).show()
             },
             onShareExternal = {
                 val url = qrUrlState.value
@@ -129,7 +129,7 @@ class OverlayManager(
         )
 
         val settingsCallbacks = SettingsCallbacksFactory.create(
-            activity = activity,
+            context = context,
             tabManager = tabManager,
             startPageManager = startPageManager,
             uiManager = uiManager,
@@ -178,7 +178,7 @@ class OverlayManager(
         qrBitmapState.value = null
         qrIsVisibleState.value = true
 
-        activity.lifecycleScope.launch {
+        coroutineScope.launch {
             val bitmap = QRUtils.generateQrCodeAsync(url)
             if (bitmap != null) {
                 qrBitmapState.value = bitmap
@@ -275,7 +275,6 @@ class OverlayManager(
 
     private fun fetchLatestVersion() {
         VersionFetcher.fetchLatestVersion(
-            activity = activity,
             onSuccess = { latestUrl, tag ->
                 isCheckingState.value = false
                 latestVersionState.value = tag

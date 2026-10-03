@@ -1,10 +1,12 @@
 <resources>
-    <string name="app_name">AABrowser</string>
-    <string name="app_credit">AABrowser — by Kododake</string>
-    <string name="author_name">Kododake</string>
-    <string name="menu_title">AABrowser</string>
+    <string name="app_name">AA Browser Motion</string>
+    <string name="app_credit">AA Browser Motion — by carlosrpg</string>
+    <string name="author_name">carlosrpg</string>
+    <string name="menu_title">AA Browser Motion</string>
     <string name="menu_close">Close</string>
     <string name="menu_address_label">Address or search</string>
+    <string name="car_browser_action_label">AA Browser</string>
+    <string name="split_screen_app_name">AA Browser Motion - Split Screen</string>
     
     <string name="secure_connection">Secure connection</string>
     <string name="insecure_connection">Insecure connection</string>
@@ -148,29 +150,42 @@
     <string name="settings_clear_cookies_success_title">Cookies and site data deleted</string>
     <string name="settings_clear_cookies_success_message">Stored cookies, local site data, and saved form data have been deleted from the browser.</string>
     
+    <string name="settings_experimental_title">Experimental / Testing</string>
+    <string name="settings_experimental_description">Options for advanced testing and debugging of motion behavior.</string>
+    <string name="settings_motion_bypass">Bypass motion restrictions (Experimental)</string>
+    <string name="settings_motion_bypass_subtitle">Attempt to remain active while vehicle is in motion. Note: System-level blocks may still apply.</string>
+    <string name="settings_motion_status_label">Motion Status Capability:</string>
+    <string name="settings_motion_status_optimized">Distraction Optimized</string>
+    <string name="settings_motion_status_bypassed">Active (Bypassed)</string>
+    <string name="settings_motion_status_restricted">Restricted (Motion)</string>
+    <string name="settings_motion_status_idle">Active (Idle)</string>
+    <string name="motion_restrictions_bypass_enable">Enable motion restrictions bypass</string>
+    <string name="motion_restrictions_bypass_disable">Disable motion restrictions bypass</string>
+
+
     <string name="start_page_buy_me_a_coffee">Buy Me a Coffee</string>
     <string name="start_page_bmc_tab">Buy Me a Coffee</string>
     <string name="start_page_github_tab">GitHub Sponsors</string>
-    <string name="start_page_bmc_description">If AABrowser made your day better, treating me to a coffee would seriously make my whole day! It keeps my code sharp and the updates rolling. ☕✨</string>
+    <string name="start_page_bmc_description">Support the original AA Browser project and its continued development. ☕✨</string>
     <string name="start_page_bmc_url">https://buymeacoffee.com/kododake</string>
     <string name="settings_sponsors">Sponsors</string>
-    <string name="settings_sponsors_description">Your support means the absolute world to me! Sponsoring directly powers new features and keeps AABrowser fast, independent, and free for everyone. 🚀</string>
+    <string name="settings_sponsors_description">Support the original AA Browser project and its contributors. 🚀</string>
     <string name="settings_sponsors_tab_github">GitHub Sponsors</string>
     <string name="settings_sponsors_open_github_sponsors">Open Sponsors Page</string>
 
     
     <string name="settings_license">License</string>
-    <string name="settings_license_description">This application and its source code are licensed under the GNU General Public License version 3 (GPLv3).\n If you incorporate this application or use any of its code, you must include clear attribution to the repository: https://github.com/kododake/AABrowser\nThis statement cannot be modified or hidden under any circumstances.</string>
+    <string name="settings_license_description">AA Browser Motion is a GPLv3 fork maintained at https://github.com/carlosrpg/AABrowser-Motion.\nOriginal AA Browser source and attribution: https://github.com/kododake/AABrowser.</string>
     
     <string name="open_source_view_licenses">View open-source licenses</string>
     <string name="open_source_licenses_title">Open-source Licenses</string>
     
-    <string name="kododake_name">kododake (Lead)</string>
+    <string name="developer_name">carlosrpg (Fork maintainer)</string>
     <string name="menu_start_page">Start Page</string>
     <string name="menu_start_page_add_current">Add current page to start page</string>
     <string name="menu_home_page_set_current">Set current page as home page</string>
     <string name="start_page_title">Start Page</string>
-    <string name="start_page_headline">AABrowser</string>
+    <string name="start_page_headline">AA Browser Motion</string>
     <string name="start_page_subtitle">Quick access for the sites you use most.</string>
     <string name="start_page_card_title">Quick Links</string>
     <string name="start_page_quick_links_hint">Press and hold a tile to drag and reorder. Tap to open or configure.</string>
@@ -211,7 +226,7 @@
     <string name="location_upgrade_btn_precise">Upgrade to precise</string>
     <string name="location_upgrade_btn_approximate">Keep approximate</string>
     <string name="ssl_error_title">Security Warning</string>
-    <string name="ssl_error_message">AABrowser detected a problem with the security certificate of this website (%1$s).\n\nThis connection is not secure, and someone might be trying to intercept your data.</string>
+    <string name="ssl_error_message">AA Browser Motion detected a problem with the security certificate of this website (%1$s).\n\nThis connection is not secure, and someone might be trying to intercept your data.</string>
     <string name="ssl_error_reason_prefix">Reason:</string>
     <string name="ssl_error_expired">The certificate has expired.</string>
     <string name="ssl_error_idmismatch">The certificate hostname does not match the website address.</string>
@@ -225,4 +240,8 @@
     <string name="start_page_slot_unassigned">Slot %1$d (Unassigned)</string>
     <string name="start_page_slot_empty_action">Tap to assign a bookmark</string>
     <string name="settings_open_fullscreen">Open in full screen</string>
+    <string name="startup_safety_notice_title">Safety notice</string>
+    <string name="startup_safety_notice_message">AA Browser Motion is intended for development, testing, and use only while safely parked. Do not interact with this app while driving. The driver is responsible for following local laws and keeping attention on the road.</string>
+    <string name="startup_safety_notice_continue">Continue</string>
+    <string name="startup_safety_notice_dont_show_again">Don’t show again</string>
 </resources>

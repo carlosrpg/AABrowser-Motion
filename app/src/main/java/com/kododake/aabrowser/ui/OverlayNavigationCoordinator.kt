@@ -18,7 +18,6 @@
 package com.kododake.aabrowser.ui
 
 import android.view.View
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import com.kododake.aabrowser.bookmarks.BookmarkManager
 import com.kododake.aabrowser.databinding.ActivityMainBinding
@@ -30,7 +29,6 @@ import com.kododake.aabrowser.tabs.TabManager
  * Bookmarks, Tabs, Settings, QR Code, and Version Check.
  */
 class OverlayNavigationCoordinator(
-    private val activity: AppCompatActivity,
     private val binding: ActivityMainBinding,
     private val uiManager: BrowserUIManager,
     private val bookmarkManager: BookmarkManager,

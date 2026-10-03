@@ -17,7 +17,10 @@
 
 package com.kododake.aabrowser.main
 
+import android.content.Context
+import android.view.Window
 import androidx.appcompat.app.AppCompatActivity
+import kotlinx.coroutines.CoroutineScope
 import com.kododake.aabrowser.analytics.UmamiTracker
 import com.kododake.aabrowser.bookmarks.BookmarkManager
 import com.kododake.aabrowser.databinding.ActivityMainBinding
@@ -34,7 +37,10 @@ import com.kododake.aabrowser.ui.ThemeManager
  * Implements BrowserManagersProvider to resolve circular dependencies cleanly at runtime.
  */
 class BrowserManagers(
-    val activity: AppCompatActivity,
+    val context: Context,
+    val activity: AppCompatActivity?,
+    val window: Window?,
+    val coroutineScope: CoroutineScope,
     val binding: ActivityMainBinding,
     val host: MainActivityCallbackFactory.CallbackHost,
     val isDebugBuild: Boolean,
@@ -43,13 +49,13 @@ class BrowserManagers(
     val onProgressChanged: (Int) -> Unit,
     val onNavigationButtonsUpdateNeeded: () -> Unit
 ) : BrowserManagersProvider {
-    override val umamiTracker: UmamiTracker by lazy { UmamiTracker(activity.applicationContext) }
-    override val themeManager: ThemeManager by lazy { ThemeManager(activity, binding) }
-    override val permissionManager: PermissionManager by lazy { PermissionManager(activity) }
+    override val umamiTracker: UmamiTracker by lazy { UmamiTracker(context.applicationContext) }
+    override val themeManager: ThemeManager by lazy { ThemeManager(context, binding) }
+    override val permissionManager: PermissionManager by lazy { PermissionManager(context, activity) }
 
     val callbackFactory: MainActivityCallbackFactory by lazy {
         MainActivityCallbackFactory(
-            context = activity,
+            context = context,
             host = host,
             provider = this
         )
@@ -57,6 +63,7 @@ class BrowserManagers(
 
     override val webBrowserCallbackFactory: WebBrowserCallbackFactory by lazy {
         WebBrowserCallbackFactory(
+            context = context,
             activity = activity,
             binding = binding,
             provider = this,
@@ -78,26 +85,25 @@ class BrowserManagers(
     }
 
     override val bookmarkManager: BookmarkManager by lazy {
-        BookmarkManager(activity, binding, callbackFactory.createBookmarkCallbacks())
+        BookmarkManager(context, activity, binding, callbackFactory.createBookmarkCallbacks())
     }
     override val startPageManager: StartPageManager by lazy {
-        StartPageManager(activity, binding, bookmarkManager, callbackFactory.createStartPageCallbacks())
+        StartPageManager(context, coroutineScope, binding, bookmarkManager, callbackFactory.createStartPageCallbacks())
     }
     override val tabManager: TabManager by lazy {
-        TabManager(activity, binding, bookmarkManager, callbackFactory.createTabCallbacks())
+        TabManager(context, binding, bookmarkManager, callbackFactory.createTabCallbacks())
     }
     override val uiManager: BrowserUIManager by lazy {
-        BrowserUIManager(activity, binding, tabManager, bookmarkManager, startPageManager, callbackFactory.createUICallbacks())
+        BrowserUIManager(context, window, binding, tabManager, bookmarkManager, startPageManager, callbackFactory.createUICallbacks())
     }
     override val navigationManager: NavigationManager by lazy {
-        NavigationManager(activity, binding, tabManager, permissionManager, startPageManager, uiManager, callbackFactory.createNavigationCallbacks())
+        NavigationManager(context, binding, tabManager, permissionManager, startPageManager, uiManager, callbackFactory.createNavigationCallbacks())
     }
     override val overlayManager: OverlayManager by lazy {
-        OverlayManager(activity, binding, tabManager, bookmarkManager, startPageManager, uiManager, callbackFactory.createOverlayCallbacks())
+        OverlayManager(context, coroutineScope, binding, tabManager, bookmarkManager, startPageManager, uiManager, callbackFactory.createOverlayCallbacks())
     }
     override val overlayCoordinator: com.kododake.aabrowser.ui.OverlayNavigationCoordinator by lazy {
         com.kododake.aabrowser.ui.OverlayNavigationCoordinator(
-            activity = activity,
             binding = binding,
             uiManager = uiManager,
             bookmarkManager = bookmarkManager,

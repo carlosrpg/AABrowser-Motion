@@ -17,7 +17,10 @@
 
 package com.kododake.aabrowser.main
 
+import android.content.Context
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
@@ -30,7 +33,8 @@ import com.kododake.aabrowser.tabs.BrowserTab
 import com.kododake.aabrowser.web.BrowserCallbacks
 
 class WebBrowserCallbackFactory(
-    private val activity: AppCompatActivity,
+    private val context: Context,
+    private val activity: AppCompatActivity?,
     private val binding: ActivityMainBinding,
     private val provider: BrowserManagersProvider,
     private val isDebugBuild: Boolean,
@@ -39,13 +43,18 @@ class WebBrowserCallbackFactory(
     private val onProgressChanged: (Int) -> Unit,
     private val onNavigationButtonsUpdateNeeded: () -> Unit
 ) {
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    private fun runOnUiThread(action: () -> Unit) {
+        activity?.runOnUiThread(action) ?: mainHandler.post(action)
+    }
 
     fun build(tab: BrowserTab): BrowserCallbacks {
         return BrowserCallbacks(
             onUrlChange = { url ->
-                activity.runOnUiThread {
+                runOnUiThread {
                     provider.tabManager.updateTabUrl(tab.id, url)
-                    BrowserPreferences.persistUrl(activity, url)
+                    BrowserPreferences.persistUrl(context, url)
                     provider.bookmarkManager.prefetchSiteIcon(url)
                     if (tab.id == provider.tabManager.activeTabId) {
                         onUrlChanged(url)
@@ -62,7 +71,7 @@ class WebBrowserCallbackFactory(
                 }
             },
             onTitleChange = { title ->
-                activity.runOnUiThread {
+                runOnUiThread {
                     val finalTitle = title.orEmpty()
                     provider.tabManager.updateTabTitle(tab.id, finalTitle)
                     if (tab.id == provider.tabManager.activeTabId) {
@@ -82,8 +91,8 @@ class WebBrowserCallbackFactory(
                 }
             },
             onFaviconReceived = { url, icon ->
-                activity.runOnUiThread {
-                    SiteIconCache.cacheIcon(activity, url, icon)
+                runOnUiThread {
+                    SiteIconCache.cacheIcon(context, url, icon)
                     if (provider.startPageManager.isShowingStartPage) provider.startPageManager.refreshStartPage()
                     if (binding.bookmarkComposeView.isVisible) provider.bookmarkManager.refreshBookmarks()
                     if (binding.tabComposeView.isVisible) provider.tabManager.refreshTabs()
@@ -91,49 +100,49 @@ class WebBrowserCallbackFactory(
             },
             onProgressChange = { p ->
                 if (tab.id == provider.tabManager.activeTabId) {
-                    activity.runOnUiThread {
+                    runOnUiThread {
                         onProgressChanged(p)
                     }
                 }
             },
             onShowDownloadPrompt = { uri ->
-                activity.runOnUiThread {
+                runOnUiThread {
                     provider.uiManager.openUriExternally(uri)
                 }
             },
             onCleartextNavigationRequested = { uri, once, host, cancel ->
-                activity.runOnUiThread {
+                runOnUiThread {
                     provider.permissionManager.showCleartextNavigationDialog(uri, once, host, cancel)
                 }
             },
             onError = { _, d ->
-                activity.runOnUiThread {
+                runOnUiThread {
                     if (isDebugBuild && tab.id == provider.tabManager.activeTabId) {
                         Toast.makeText(
-                            activity,
-                            d ?: activity.getString(R.string.error_generic_message),
+                            context,
+                            d ?: context.getString(R.string.error_generic_message),
                             Toast.LENGTH_SHORT
                         ).show()
                     }
                 }
             },
             onEnterFullscreen = { v, c ->
-                activity.runOnUiThread {
+                runOnUiThread {
                     provider.uiManager.enterFullscreen(v, c)
                 }
             },
             onExitFullscreen = {
-                activity.runOnUiThread {
+                runOnUiThread {
                     provider.uiManager.exitFullscreen(true)
                 }
             },
             onPermissionRequest = { r ->
-                activity.runOnUiThread {
+                runOnUiThread {
                     provider.permissionManager.handleWebPermissionRequest(r, REQUEST_CODE_RECORD_AUDIO)
                 }
             },
             onGeolocationPermissionRequest = { origin, callback ->
-                activity.runOnUiThread {
+                runOnUiThread {
                     provider.permissionManager.handleGeolocationPermissionRequest(origin, callback)
                 }
             },
@@ -153,10 +162,10 @@ class WebBrowserCallbackFactory(
                 }
             },
             onRenderProcessGone = { didCrash ->
-                activity.runOnUiThread {
+                runOnUiThread {
                     Toast.makeText(
-                        activity,
-                        activity.getString(R.string.error_generic_message),
+                        context,
+                        context.getString(R.string.error_generic_message),
                         Toast.LENGTH_SHORT
                     ).show()
                     provider.tabManager.closeTab(tab.id) {}

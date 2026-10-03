@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">Legacy Projection POC</string>
+    <string name="fullscreen_app_name">Projection POC Fullscreen</string>
+    <string name="projection_content_title">Shared responsive projected UI</string>
+    <string name="projection_content_description">The legacy CarActivity and fullscreen navigation surface render this same ordinary Android View hierarchy. It automatically reflows when the projected window size or aspect ratio changes.</string>
+    <string name="projection_input_test">Test projected touch input</string>
+    <string name="projection_input_test_count">Projected taps: %1$d</string>
+    <string name="change_perspective">Change perspective</string>
+    <string name="select_fullscreen_perspective">Returning to the Android Auto launcher. Select Projection POC Fullscreen.</string>
+    <string name="select_legacy_perspective">Returning to the Android Auto launcher. Select Legacy Projection POC.</string>
+    <string name="fullscreen_action_label">Fullscreen POC</string>
+</resources>

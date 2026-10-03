@@ -17,7 +17,6 @@
 
 package com.kododake.aabrowser.ui
 
-import android.app.Activity
 import android.content.Context
 import android.net.Uri
 import android.webkit.WebView
@@ -34,18 +33,18 @@ import com.kododake.aabrowser.startpage.StartPageManager
 import com.kododake.aabrowser.tabs.TabManager
 
 class MainActivitySetup(
-    private val activity: Activity,
+    private val context: Context,
     private val binding: ActivityMainBinding,
     private val managers: Managers,
     private val actions: Actions
 ) {
     constructor(
-        activity: Activity,
+        context: Context,
         binding: ActivityMainBinding,
         browserManagers: com.kododake.aabrowser.main.BrowserManagers,
         actions: Actions
     ) : this(
-        activity = activity,
+        context = context,
         binding = binding,
         managers = Managers(
             bookmarkManager = browserManagers.bookmarkManager,
@@ -91,10 +90,10 @@ class MainActivitySetup(
         }
         managers.tabManager.initializeTabs(
             intentUrl,
-            BrowserPreferences.getHomePageUrl(activity),
-            BrowserPreferences.getLastVisitedUrl(activity),
-            BrowserPreferences.shouldRestoreTabsOnLaunch(activity),
-            BrowserPreferences.shouldResumeLastPageOnLaunch(activity),
+            BrowserPreferences.getHomePageUrl(context),
+            BrowserPreferences.getLastVisitedUrl(context),
+            BrowserPreferences.shouldRestoreTabsOnLaunch(context),
+            BrowserPreferences.shouldResumeLastPageOnLaunch(context),
             shouldForceSessionRestore
         )
 
@@ -121,12 +120,12 @@ class MainActivitySetup(
                 managers.uiManager.hideMenuOverlay()
             },
             onDesktopToggle = { isChecked ->
-                BrowserPreferences.setDesktopMode(activity, isChecked)
+                BrowserPreferences.setDesktopMode(context, isChecked)
                 actions.onDesktopModeChanged(isChecked)
                 managers.uiManager.menuHelper.stateHolder.isDesktopMode = isChecked
             },
             onFullscreenToggle = { isChecked ->
-                BrowserPreferences.setFullscreenMode(activity, isChecked)
+                BrowserPreferences.setFullscreenMode(context, isChecked)
                 managers.uiManager.setImmersiveMode(isChecked)
                 managers.uiManager.menuHelper.stateHolder.isFullscreenMode = isChecked
             },
@@ -177,7 +176,7 @@ class MainActivitySetup(
             actions.handleQuickActionButtonPressed()
         }
         managers.uiManager.menuHelper.updateVersion("v${com.kododake.aabrowser.BuildConfig.VERSION_NAME}")
-        val isFullscreen = BrowserPreferences.shouldUseFullscreenMode(activity)
+        val isFullscreen = BrowserPreferences.shouldUseFullscreenMode(context)
         managers.uiManager.menuHelper.stateHolder.isFullscreenMode = isFullscreen
         if (isFullscreen) {
             managers.uiManager.setImmersiveMode(true)

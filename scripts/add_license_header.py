@@ -7,6 +7,7 @@ from pathlib import Path
 # Standard GPLv3 header
 STANDARD_HEADER = """/*
  * Copyright (C) 2025 AABrowser Contributors (https://github.com/kododake/AABrowser)
+ * Modifications Copyright (C) 2026 AA Browser Motion Contributors (https://github.com/carlosrpg/AABrowser-Motion)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

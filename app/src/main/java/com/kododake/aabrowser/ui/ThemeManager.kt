@@ -18,21 +18,22 @@
 package com.kododake.aabrowser.ui
 
 import android.content.res.ColorStateList
+import android.content.Context
 import android.util.TypedValue
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.graphics.ColorUtils
 import com.kododake.aabrowser.databinding.ActivityMainBinding
 
 class ThemeManager(
-    private val activity: AppCompatActivity,
+    private val context: Context,
     private val binding: ActivityMainBinding
 ) {
 
     fun resolveThemeColor(attrRes: Int): Int {
         val typedValue = TypedValue()
-        if (activity.theme.resolveAttribute(attrRes, typedValue, true)) {
+        if (context.theme.resolveAttribute(attrRes, typedValue, true)) {
             if (typedValue.resourceId != 0) {
-                return androidx.core.content.ContextCompat.getColor(activity, typedValue.resourceId)
+                return androidx.core.content.ContextCompat.getColor(context, typedValue.resourceId)
             }
             return typedValue.data
         }

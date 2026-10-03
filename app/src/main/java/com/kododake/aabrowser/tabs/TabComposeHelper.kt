@@ -17,7 +17,7 @@
 
 package com.kododake.aabrowser.tabs
 
-import androidx.appcompat.app.AppCompatActivity
+import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import com.kododake.aabrowser.bookmarks.BookmarkIconUtils
@@ -28,7 +28,7 @@ import com.kododake.aabrowser.ui.compose.screens.tabs.TabManagerSheet
 object TabComposeHelper {
     fun setupComposeTabs(
         manager: TabManager,
-        activity: AppCompatActivity,
+        context: Context,
         binding: ActivityMainBinding,
         callbacks: TabCallbacks
     ) {
@@ -64,7 +64,7 @@ object TabComposeHelper {
                         onDismissFinished = { manager.onTabDismissFinished() }
                     ),
                     faviconProvider = { url ->
-                        BookmarkIconUtils.resolveCachedSiteIcon(activity, url) { manager.refreshTabs() }
+                        BookmarkIconUtils.resolveCachedSiteIcon(context, url) { manager.refreshTabs() }
                     }
                 )
             }

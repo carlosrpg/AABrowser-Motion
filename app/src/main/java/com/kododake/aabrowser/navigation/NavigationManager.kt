@@ -32,7 +32,7 @@ import com.kododake.aabrowser.tabs.TabManager
 import com.kododake.aabrowser.ui.BrowserUIManager
 
 class NavigationManager(
-    private val activity: AppCompatActivity,
+    private val context: Context,
     private val binding: ActivityMainBinding,
     private val tabManager: TabManager,
     private val permissionManager: PermissionManager,
@@ -117,7 +117,7 @@ class NavigationManager(
                 callbacks.setCurrentPageTitle("")
             }
             
-            BrowserPreferences.persistUrl(activity, navigable)
+            BrowserPreferences.persistUrl(context, navigable)
             val isFromStartPage = startPageManager.isShowingStartPage
             if (isFromStartPage) {
                 targetWebView.visibility = View.VISIBLE
@@ -134,7 +134,7 @@ class NavigationManager(
         val scheme = uri.scheme?.lowercase()
         val host = uri.host?.lowercase()
         
-        if (scheme == "http" && !BrowserPreferences.isHostAllowedCleartext(activity, host)) {
+        if (scheme == "http" && !BrowserPreferences.isHostAllowedCleartext(context, host)) {
             permissionManager.showCleartextNavigationDialog(
                 uri = uri,
                 onAllowOnce = {
@@ -147,7 +147,7 @@ class NavigationManager(
                 },
                 onAllowHost = {
                     if (host != null) {
-                        BrowserPreferences.addAllowedCleartextHost(activity, host)
+                        BrowserPreferences.addAllowedCleartextHost(context, host)
                     }
                     finishNavigation {
                         targetWebView.setTag(R.id.webview_allow_once_uri_tag, navigable)

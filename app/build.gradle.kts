@@ -24,6 +24,8 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    useLibrary("android.car")
+
     signingConfigs {
         create("release") {
             val localProps = Properties().apply {
@@ -36,7 +38,7 @@ android {
                     ?: localProps.getProperty(key)
                     ?: System.getenv(key)
 
-            val storeFilePath = getProp("RELEASE_STORE_FILE") ?: "../release.keystore"
+            val storeFilePath = getProp("RELEASE_STORE_FILE") ?: "release.keystore"
             storeFile = rootProject.file(storeFilePath)
 
             getProp("RELEASE_STORE_PASSWORD")?.let { storePassword = it }
@@ -47,7 +49,7 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
+            isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -75,7 +77,7 @@ android {
     androidComponents {
         onVariants { variant ->
             val vNameStr = android.defaultConfig.versionName ?: "unknown"
-            val appNameStr = "AABrowser"
+            val appNameStr = "AABrowser-Motion"
             val isDebug = variant.buildType == "debug"
             val debugSuffixStr = if (isDebug) "_debug" else ""
 
@@ -107,6 +109,7 @@ tasks.withType<KotlinJvmCompile>().configureEach {
 }
 
 dependencies {
+    implementation(files("libs/aauto.aar"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.ktx)
