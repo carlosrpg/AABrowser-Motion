@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - fix/gha-release-workflow-validation
   workflow_dispatch:
 
 permissions:
