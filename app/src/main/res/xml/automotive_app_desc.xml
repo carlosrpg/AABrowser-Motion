@@ -6,7 +6,4 @@
     <uses
         name="projection"
         tools:ignore="InvalidUsesTagAttribute" />
-    <uses
-        name="template"
-        tools:ignore="InvalidUsesTagAttribute" />
 </automotiveApp>

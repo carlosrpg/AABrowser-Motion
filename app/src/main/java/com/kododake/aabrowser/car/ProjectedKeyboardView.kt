@@ -146,7 +146,7 @@ internal class ProjectedKeyboardView(
 
         addView(createPreviewRow(), LayoutParams(LayoutParams.MATCH_PARENT, dp(48)))
         keyboardView.apply {
-            setPreviewEnabled(true)
+            setPreviewEnabled(false)
             setProximityCorrectionEnabled(false)
             setPopupParent(this@ProjectedKeyboardView)
             setOnKeyboardActionListener(createKeyboardActionListener())

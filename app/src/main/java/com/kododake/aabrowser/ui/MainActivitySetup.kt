@@ -75,7 +75,8 @@ class MainActivitySetup(
         val updateNavigationButtons: () -> Unit,
         val handleQuickActionButtonPressed: () -> Unit,
         val showStartPage: () -> Unit,
-        val onDesktopModeChanged: (Boolean) -> Unit
+        val onDesktopModeChanged: (Boolean) -> Unit,
+        val onAddressInputFocusChanged: (Boolean) -> Unit = {}
     )
 
     fun initializeUi(
@@ -151,6 +152,7 @@ class MainActivitySetup(
             onNavigate = { url ->
                 managers.navigationManager.navigateToAddress(url, true)
             },
+            onAddressInputFocusChanged = actions.onAddressInputFocusChanged,
             onClose = { managers.uiManager.hideMenuOverlay() },
             onGitHub = {
                 val uri = Uri.parse(AppConstants.GITHUB_REPO_URL)

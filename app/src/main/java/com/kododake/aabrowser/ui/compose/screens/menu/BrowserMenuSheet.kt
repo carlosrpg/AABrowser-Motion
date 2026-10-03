@@ -71,7 +71,8 @@ fun BrowserMenuSheet(
 
             MenuAddressBar(
                 url = stateHolder.url,
-                onNavigate = actions.onNavigate
+                onNavigate = actions.onNavigate,
+                onInputFocusChanged = actions.onAddressInputFocusChanged
             )
 
             Spacer(Modifier.height(12.dp))

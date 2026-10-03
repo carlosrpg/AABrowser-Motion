@@ -150,3 +150,9 @@ The `NavigationTemplate` also exposes Android Auto's `Action.PAN`, matching the 
 ## Conclusion
 
 The peer implementation reaches a direct browser-capable car UI through a legacy private projection service and activity API, not through an AndroidX template category and not through screen mirroring for its built-in Web/YouTube/Stremio features. The accompanying POC isolates that architecture in a minimal project without a `WebView`.
+
+## AABrowser implementation decision
+
+AABrowser now exposes both entry points through `CarActivityService`. `FullscreenBrowserActivity` inherits `SplitScreenBrowserActivity`; both use the same browser shell, responsive host view, keyboard controller, and WebView input buffer. Android Auto supplies the activity's available bounds, so the content remeasures for a split tile or a larger/full-screen allocation without a separate view implementation. The app no longer creates a `VirtualDisplay` or `Presentation`; Android Auto may create its own backing display for the private projection protocol.
+
+Both entry points share the custom projected keyboard and local text buffer for WebView inputs. Keystrokes update the local buffer immediately and mirror the focused DOM value with input events, rather than committing every character through the WebView `InputConnection`. The phone `MainActivity` remains on the standard Android system keyboard. Android Auto controls the actual window allocation; `CarActivity` cannot force the host to use navigation fullscreen.

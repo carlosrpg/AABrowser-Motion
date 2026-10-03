@@ -34,6 +34,7 @@ data class MenuActions(
     val onCheckUpdate: () -> Unit = {},
     val onSettings: () -> Unit = {},
     val onNavigate: (String) -> Unit = {},
+    val onAddressInputFocusChanged: (Boolean) -> Unit = {},
     val onClose: () -> Unit = {},
     val onGitHub: () -> Unit = {},
     val onDragDelta: (Float) -> Unit = {},

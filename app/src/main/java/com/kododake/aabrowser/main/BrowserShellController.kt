@@ -129,7 +129,8 @@ class BrowserShellController(
                         isChecked,
                         BrowserPreferences.getUserAgentProfile(context)
                     )
-                }
+                },
+                onAddressInputFocusChanged = hostContext::onAddressInputFocusChanged
             )
         )
         setup.initializeUi(
