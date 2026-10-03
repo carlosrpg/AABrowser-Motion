@@ -17,7 +17,6 @@
 
 package com.kododake.aabrowser.car
 
-import android.content.Context
 import android.content.Intent
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
@@ -65,6 +64,12 @@ class FullscreenCarService : CarAppService() {
         private var scrollDownTime = 0L
         private var lastScrollTime = 0L
         private var scrollInProgress = false
+        private var lastClickX = 0f
+        private var lastClickY = 0f
+
+        private val showKeyboardAfterClick = Runnable {
+            presentation?.requestSystemKeyboard(lastClickX, lastClickY)
+        }
 
         private val finishScroll = object : Runnable {
             override fun run() {
@@ -123,7 +128,7 @@ class FullscreenCarService : CarAppService() {
             surfaceHeight = height
 
             val displayManager =
-                carContext.getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager ?: return
+                carContext.getSystemService(DISPLAY_SERVICE) as? DisplayManager ?: return
             val flags = DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY or
                 DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION
 
@@ -141,7 +146,12 @@ class FullscreenCarService : CarAppService() {
                 return
             }
 
-            presentation = BrowserPresentation(carContext, display).also {
+            val displayContext = carContext.createDisplayContext(display)
+
+            presentation = BrowserPresentation(
+                displayContext = displayContext,
+                display = display
+            ).also {
                 it.show()
                 it.updateVisibleArea(surfaceWidth, surfaceHeight, visibleArea)
             }
@@ -160,11 +170,11 @@ class FullscreenCarService : CarAppService() {
         override fun onClick(x: Float, y: Float) {
             val now = SystemClock.uptimeMillis()
             dispatchMotionEvent(now, now, MotionEvent.ACTION_DOWN, x, y)
-            dispatchMotionEvent(now, now + CLICK_DURATION_MS, MotionEvent.ACTION_UP, x, y)
-            handler.postDelayed(
-                { presentation?.showKeyboardForFocusedInput() },
-                TEXT_INPUT_FOCUS_DELAY_MS
-            )
+            dispatchMotionEvent(now, now, MotionEvent.ACTION_UP, x, y)
+            lastClickX = x
+            lastClickY = y
+            handler.removeCallbacks(showKeyboardAfterClick)
+            handler.postDelayed(showKeyboardAfterClick, TEXT_INPUT_FOCUS_DELAY_MS)
         }
 
         override fun onScroll(distanceX: Float, distanceY: Float) {
@@ -218,6 +228,7 @@ class FullscreenCarService : CarAppService() {
 
         private fun releaseViewHost() {
             handler.removeCallbacks(finishScroll)
+            handler.removeCallbacks(showKeyboardAfterClick)
             scrollInProgress = false
 
             presentation?.dismiss()
@@ -230,7 +241,6 @@ class FullscreenCarService : CarAppService() {
         }
 
         private companion object {
-            const val CLICK_DURATION_MS = 10L
             const val SCROLL_END_DELAY_MS = 120L
             const val TEXT_INPUT_FOCUS_DELAY_MS = 200L
 

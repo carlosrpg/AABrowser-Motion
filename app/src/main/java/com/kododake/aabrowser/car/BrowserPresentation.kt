@@ -20,15 +20,17 @@ package com.kododake.aabrowser.car
 import android.app.Presentation
 import android.content.Context
 import android.graphics.Rect
+import android.net.Uri
 import android.os.Bundle
-import android.text.InputType
-import android.view.KeyEvent
+import android.os.SystemClock
+import android.util.Log
 import android.view.Display
 import android.view.View
 import android.view.ViewGroup
-import android.view.inputmethod.EditorInfo
-import android.view.inputmethod.InputConnection
+import android.view.Window
 import android.widget.LinearLayout
+import android.webkit.WebView
+import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
@@ -42,27 +44,41 @@ import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.kododake.aabrowser.R
 import com.kododake.aabrowser.databinding.ActivityMainBinding
+import com.kododake.aabrowser.main.BrowserHostContext
 import com.kododake.aabrowser.main.BrowserShellController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import org.json.JSONException
+import org.json.JSONObject
 
 internal class BrowserPresentation(
-    context: Context,
+    displayContext: Context,
     display: Display
-) : Presentation(context, display, R.style.Theme_AABrowser),
+) : Presentation(displayContext, display, R.style.Theme_AABrowser),
     LifecycleOwner,
     SavedStateRegistryOwner,
-    ViewModelStoreOwner {
+    ViewModelStoreOwner,
+    BrowserHostContext {
+
     private val lifecycleRegistry = LifecycleRegistry(this)
     private val savedStateController = SavedStateRegistryController.create(this)
     private val hostViewModelStore = ViewModelStore()
-    private val coroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private var browserShell: BrowserShellController? = null
+    override val coroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    override val hostActivity: AppCompatActivity? = null
+    override val hostContext: Context get() = context
+    override val hostWindow: Window? get() = window
+
+    var browserShell: BrowserShellController? = null
+        private set
     private var contentRoot: View? = null
     private var projectedKeyboard: ProjectedKeyboardView? = null
-    private var activeInputSession: InputSession? = null
+    private var activeInputSession: SystemInputSession? = null
+    private val pendingKeyboardText = StringBuilder()
+    private var keyboardTextFlushScheduled = false
+    private val flushKeyboardText = Runnable { flushPendingKeyboardText() }
+    private var ignoreHiddenKeyboardClickUntil = 0L
     private var isDestroyed = false
 
     override val lifecycle: Lifecycle
@@ -74,16 +90,25 @@ internal class BrowserPresentation(
     override val viewModelStore: ViewModelStore
         get() = hostViewModelStore
 
+    override fun launchPickBackground(onPicked: (Uri?) -> Unit) {
+        onPicked(null)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         savedStateController.performAttach()
         savedStateController.performRestore(savedInstanceState)
         lifecycleRegistry.currentState = Lifecycle.State.CREATED
         super.onCreate(savedInstanceState)
 
-        window?.setLayout(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
-        )
+        window?.let { w ->
+            w.setLayout(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            w.decorView.isFocusable = true
+            w.decorView.isFocusableInTouchMode = true
+            w.decorView.requestFocus()
+        }
 
         val binding = ActivityMainBinding.inflate(layoutInflater)
         val presentationRoot = LinearLayout(context).apply {
@@ -92,6 +117,55 @@ internal class BrowserPresentation(
             setViewTreeSavedStateRegistryOwner(this@BrowserPresentation)
             setViewTreeViewModelStoreOwner(this@BrowserPresentation)
         }
+        val keyboard = ProjectedKeyboardView(
+            context,
+            object : ProjectedKeyboardView.Listener {
+                override fun onText(text: String) {
+                    enqueueKeyboardText(text)
+                }
+
+                override fun onBackspace() {
+                    flushPendingKeyboardText()
+                    activeInputSession?.deleteBackward()
+                    refreshKeyboardPreview()
+                }
+
+                override fun onEditorAction() {
+                    flushPendingKeyboardText()
+                    val keepKeyboardOpen =
+                        activeInputSession?.performEditorAction() == true
+                    if (!keepKeyboardOpen) {
+                        suppressHiddenKeyboardClick()
+                        hideProjectedKeyboard()
+                    }
+                }
+
+                override fun onClearText() {
+                    flushPendingKeyboardText()
+                    activeInputSession?.clearText()
+                    refreshKeyboardPreview()
+                }
+
+                override fun onDismiss() {
+                    suppressHiddenKeyboardClick()
+                    hideProjectedKeyboard()
+                }
+
+                override fun onLanguageChanged(locale: java.util.Locale) {
+                    refreshKeyboardPreview()
+                }
+
+                override fun onPreviewCursorChanged(position: Int) {
+                    flushPendingKeyboardText()
+                    if (activeInputSession?.setCursorPosition(position) == true) {
+                        refreshKeyboardPreview()
+                    }
+                }
+            }
+        ).apply {
+            visibility = View.GONE
+        }
+        projectedKeyboard = keyboard
         binding.root.setViewTreeLifecycleOwner(this)
         binding.root.setViewTreeSavedStateRegistryOwner(this)
         binding.root.setViewTreeViewModelStoreOwner(this)
@@ -103,55 +177,19 @@ internal class BrowserPresentation(
                 1f
             )
         )
-        projectedKeyboard = ProjectedKeyboardView(
-            context,
-            object : ProjectedKeyboardView.Listener {
-                override fun onText(text: String) {
-                    activeInputSession?.inputConnection?.commitText(text, 1)
-                }
-
-                override fun onBackspace() {
-                    activeInputSession?.inputConnection?.let { connection ->
-                        if (!connection.deleteSurroundingText(1, 0)) {
-                            connection.sendKeyEvent(
-                                KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DEL)
-                            )
-                            connection.sendKeyEvent(
-                                KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_DEL)
-                            )
-                        }
-                    }
-                }
-
-                override fun onSubmit() {
-                    submitFocusedInput()
-                }
-
-                override fun onDismiss() {
-                    hideProjectedKeyboard()
-                }
-            }
-        ).also { keyboard ->
-            keyboard.visibility = View.GONE
-            presentationRoot.addView(
-                keyboard,
-                LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                )
+        presentationRoot.addView(
+            keyboard,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
             )
-        }
+        )
         setContentView(presentationRoot)
         contentRoot = presentationRoot
 
         browserShell = BrowserShellController(
-            context = context,
-            activity = null,
-            window = window,
-            coroutineScope = coroutineScope,
-            binding = binding,
-            onPickBackgroundRequested = {},
-            onRecreateRequested = {}
+            hostContext = this,
+            binding = binding
         ).also {
             it.initialize(intent = null, shouldForceSessionRestore = true)
         }
@@ -181,25 +219,150 @@ internal class BrowserPresentation(
         root.setPadding(left, top, right, bottom)
     }
 
-    fun showKeyboardForFocusedInput(): Boolean {
-        val focusedView = window?.currentFocus ?: contentRoot?.findFocus() ?: run {
+    fun requestSystemKeyboard(surfaceX: Float, surfaceY: Float): Boolean {
+        flushPendingKeyboardText()
+        val keyboard = projectedKeyboard
+        if (keyboard?.containsPoint(surfaceX, surfaceY) == true) return true
+        if (SystemClock.uptimeMillis() < ignoreHiddenKeyboardClickUntil) {
+            ignoreHiddenKeyboardClickUntil = 0L
+            if (keyboard?.containsPointInBounds(surfaceX, surfaceY) == true) return true
+        } else {
+            ignoreHiddenKeyboardClickUntil = 0L
+        }
+
+        val focusedView = window?.currentFocus ?: contentRoot?.findFocus()
+        if (focusedView == null) {
             hideProjectedKeyboard()
             return false
         }
-        val editorInfo = EditorInfo()
-        val inputConnection = focusedView.onCreateInputConnection(editorInfo) ?: run {
-            hideProjectedKeyboard()
-            return false
-        }
-        if (editorInfo.inputType == InputType.TYPE_NULL) {
+        val inputSession = SystemInputSession.from(focusedView)
+        if (inputSession == null) {
             hideProjectedKeyboard()
             return false
         }
 
-        activeInputSession = InputSession(inputConnection, editorInfo)
-        projectedKeyboard?.visibility = View.VISIBLE
+        activeInputSession = inputSession
+        keyboard?.configure(inputSession.editorInfo)
+        keyboard?.setInputSession(inputSession)
+        keyboard?.visibility = View.VISIBLE
+
+        if (focusedView is WebView) {
+            val snapshotRevision = inputSession.editRevision
+            focusedView.evaluateJavascript(WEB_INPUT_SNAPSHOT_SCRIPT) { result ->
+                if (activeInputSession !== inputSession ||
+                    inputSession.editRevision != snapshotRevision
+                ) {
+                    return@evaluateJavascript
+                }
+                readWebInputSnapshot(result)?.let { snapshot ->
+                    inputSession.setTextSnapshot(
+                        snapshot.text,
+                        snapshot.selectionStart,
+                        snapshot.selectionEnd
+                    )
+                }
+                refreshKeyboardPreview()
+            }
+        } else {
+            try {
+                inputSession.readExtractedText()
+            } catch (error: AssertionError) {
+                Log.w(TAG, "Focused editor does not expose text to the inline keyboard", error)
+            } catch (error: IllegalStateException) {
+                Log.w(TAG, "Focused editor text is temporarily unavailable", error)
+            }
+            refreshKeyboardPreview()
+        }
         return true
     }
+
+    private fun refreshKeyboardPreview() {
+        if (activeInputSession == null) return
+        projectedKeyboard?.refreshPreview()
+    }
+
+    private fun enqueueKeyboardText(text: String) {
+        if (text.isEmpty() || activeInputSession == null) return
+
+        pendingKeyboardText.append(text)
+        if (keyboardTextFlushScheduled) return
+
+        keyboardTextFlushScheduled = true
+        projectedKeyboard?.postOnAnimation(flushKeyboardText) ?: flushPendingKeyboardText()
+    }
+
+    private fun flushPendingKeyboardText() {
+        projectedKeyboard?.removeCallbacks(flushKeyboardText)
+        keyboardTextFlushScheduled = false
+        if (pendingKeyboardText.isEmpty()) return
+
+        val session = activeInputSession
+        val text = pendingKeyboardText.toString()
+        pendingKeyboardText.setLength(0)
+        session?.insertText(text)
+        refreshKeyboardPreview()
+    }
+
+    private fun hideProjectedKeyboard() {
+        flushPendingKeyboardText()
+        projectedKeyboard?.visibility = View.GONE
+        projectedKeyboard?.clearInputSession()
+        activeInputSession = null
+    }
+
+    private fun suppressHiddenKeyboardClick() {
+        ignoreHiddenKeyboardClickUntil =
+            SystemClock.uptimeMillis() + HIDDEN_KEYBOARD_CLICK_SUPPRESSION_MS
+    }
+
+    private fun readWebInputSnapshot(result: String?): WebInputSnapshot? {
+        if (result.isNullOrBlank() || result == "null") return null
+        return try {
+            val json = JSONObject(result)
+            val text = json.optString("text")
+            WebInputSnapshot(
+                text = text,
+                selectionStart = json.optInt("selectionStart", text.length),
+                selectionEnd = json.optInt("selectionEnd", text.length)
+            )
+        } catch (error: JSONException) {
+            Log.w(TAG, "Unable to read the focused WebView field for the inline keyboard", error)
+            null
+        }
+    }
+
+    private companion object {
+        const val MIN_OCCLUSION_RATIO = 0.05f
+        const val HIDDEN_KEYBOARD_CLICK_SUPPRESSION_MS = 500L
+        const val TAG = "BrowserPresentation"
+        const val WEB_INPUT_SNAPSHOT_SCRIPT = """
+            (function() {
+                var element = document.activeElement;
+                if (!element) return null;
+                var value = typeof element.value === "string"
+                    ? element.value
+                    : (element.isContentEditable ? element.innerText : "");
+                var start = value.length;
+                var end = value.length;
+                try {
+                    if (typeof element.selectionStart === "number") {
+                        start = element.selectionStart;
+                        end = element.selectionEnd;
+                    }
+                } catch (ignored) {
+                    start = value.length;
+                    end = value.length;
+                }
+                return { text: value, selectionStart: start, selectionEnd: end };
+            })()
+        """
+    }
+
+    private data class WebInputSnapshot(
+        val text: String,
+        val selectionStart: Int,
+        val selectionEnd: Int
+    )
 
     override fun onStart() {
         super.onStart()
@@ -218,6 +381,7 @@ internal class BrowserPresentation(
     override fun dismiss() {
         if (isDestroyed) return
 
+        flushPendingKeyboardText()
         super.dismiss()
         isDestroyed = true
         browserShell?.onDestroy()
@@ -230,39 +394,4 @@ internal class BrowserPresentation(
         hostViewModelStore.clear()
     }
 
-    private companion object {
-        const val MIN_OCCLUSION_RATIO = 0.05f
-    }
-
-    private data class InputSession(
-        val inputConnection: InputConnection,
-        val editorInfo: EditorInfo
-    )
-
-    private fun submitFocusedInput() {
-        val session = activeInputSession ?: return
-        val isMultiline =
-            session.editorInfo.inputType and InputType.TYPE_TEXT_FLAG_MULTI_LINE != 0
-        if (isMultiline) {
-            session.inputConnection.commitText("\n", 1)
-            return
-        }
-
-        val action = session.editorInfo.imeOptions and EditorInfo.IME_MASK_ACTION
-        session.inputConnection.performEditorAction(
-            if (action == EditorInfo.IME_ACTION_NONE ||
-                action == EditorInfo.IME_ACTION_UNSPECIFIED
-            ) {
-                EditorInfo.IME_ACTION_DONE
-            } else {
-                action
-            }
-        )
-        hideProjectedKeyboard()
-    }
-
-    private fun hideProjectedKeyboard() {
-        projectedKeyboard?.visibility = View.GONE
-        activeInputSession = null
-    }
 }

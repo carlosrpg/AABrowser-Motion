@@ -23,7 +23,9 @@ import android.content.pm.ApplicationInfo
 import android.net.Uri
 import android.view.View
 import android.view.Window
+import android.webkit.CookieManager
 import android.webkit.WebView
+import androidx.appcompat.R
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import com.kododake.aabrowser.AppConstants.REQUEST_CODE_POST_NOTIFICATIONS
@@ -37,14 +39,37 @@ import com.kododake.aabrowser.ui.controllers.ProgressIndicatorController
 import kotlinx.coroutines.CoroutineScope
 
 class BrowserShellController(
-    private val context: Context,
-    private val activity: AppCompatActivity?,
-    private val window: Window?,
-    private val coroutineScope: CoroutineScope,
-    private val binding: ActivityMainBinding,
-    private val onPickBackgroundRequested: () -> Unit,
-    private val onRecreateRequested: () -> Unit
+    val hostContext: BrowserHostContext,
+    private val binding: ActivityMainBinding
 ) : MainActivityCallbackFactory.CallbackHost {
+
+    constructor(
+        context: Context,
+        activity: AppCompatActivity?,
+        window: Window?,
+        coroutineScope: CoroutineScope,
+        binding: ActivityMainBinding,
+        onPickBackgroundRequested: () -> Unit,
+        onRecreateRequested: () -> Unit
+    ) : this(
+        hostContext = object : BrowserHostContext {
+            override val hostContext: Context get() = context
+            override val hostActivity: AppCompatActivity? get() = activity
+            override val hostWindow: Window? get() = window
+            override val coroutineScope: CoroutineScope get() = coroutineScope
+            override fun recreateHost() { onRecreateRequested() }
+            override fun launchPickBackground(onPicked: (Uri?) -> Unit) {
+                onPickBackgroundRequested()
+            }
+        },
+        binding = binding
+    )
+
+    val context: Context get() = hostContext.hostContext
+    val activity: AppCompatActivity? get() = hostContext.hostActivity
+    val window: Window? get() = hostContext.hostWindow
+    val coroutineScope: CoroutineScope get() = hostContext.coroutineScope
+
     private val isDebugBuild =
         (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
 
@@ -135,7 +160,7 @@ class BrowserShellController(
             FreeDroidWarnHelper.checkAndShow(
                 hostActivity,
                 managers.themeManager.resolveThemeColor(
-                    androidx.appcompat.R.attr.colorError
+                    R.attr.colorError
                 )
             ) { url ->
                 managers.navigationManager.loadUrlFromIntent(url)
@@ -166,6 +191,7 @@ class BrowserShellController(
         managers.uiManager.exitFullscreen()
         webView?.onPause()
         managers.tabManager.persistTabSession()
+        runCatching { CookieManager.getInstance().flush() }
     }
 
     fun onDestroy() {
@@ -288,9 +314,11 @@ class BrowserShellController(
     override fun onShowStartPage() = showStartPage()
     override fun onHideStartPage() = hideStartPage()
     override fun onUpdateNavigationButtons() = updateNavigationButtons()
-    override fun onPickBackgroundRequested() = onPickBackgroundRequested.invoke()
+    override fun onPickBackgroundRequested() {
+        hostContext.launchPickBackground { uri -> onStartPageBackgroundPicked(uri) }
+    }
     override fun onVersionInfoReceived(latestUrl: String, tagName: String) {
         latestReleaseUrl = latestUrl
     }
-    override fun onRecreateRequested() = onRecreateRequested.invoke()
+    override fun onRecreateRequested() = hostContext.recreateHost()
 }

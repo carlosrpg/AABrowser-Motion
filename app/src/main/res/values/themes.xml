@@ -36,6 +36,16 @@
         <item name="android:navigationBarColor">@color/theme_background</item>
     </style>
 
+    <style name="ProjectedKeyboardView" parent="">
+        <item name="android:background">?attr/colorSurfaceContainer</item>
+        <item name="android:keyBackground">@drawable/inline_keyboard_key</item>
+        <item name="android:keyTextColor">?attr/colorOnSurface</item>
+        <item name="android:keyTextSize">18sp</item>
+        <item name="android:labelTextSize">14sp</item>
+        <item name="android:shadowColor">@android:color/transparent</item>
+        <item name="android:shadowRadius">0</item>
+    </style>
+
     <!-- Circular Image Shape -->
     <style name="ShapeAppearance.App.Circle" parent="">
         <item name="cornerFamily">rounded</item>
