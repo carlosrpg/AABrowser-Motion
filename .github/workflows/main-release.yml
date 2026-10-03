@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -43,6 +46,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Restore release keystore
+        if: github.event_name != 'pull_request'
         env:
           RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
         run: |
@@ -51,6 +55,26 @@ jobs:
           test -n "$RELEASE_KEY_ALIAS"
           test -n "$RELEASE_KEY_PASSWORD"
           printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RELEASE_STORE_FILE"
+
+      - name: Create pull request signing key
+        if: github.event_name == 'pull_request'
+        run: |
+          keytool -genkeypair \
+            -noprompt \
+            -keystore "$RELEASE_STORE_FILE" \
+            -storetype PKCS12 \
+            -storepass ci-validation \
+            -keypass ci-validation \
+            -alias ci-validation \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 1 \
+            -dname "CN=CI Validation, O=AA Browser Motion"
+          {
+            echo "RELEASE_STORE_PASSWORD=ci-validation"
+            echo "RELEASE_KEY_ALIAS=ci-validation"
+            echo "RELEASE_KEY_PASSWORD=ci-validation"
+          } >> "$GITHUB_ENV"
 
       - name: Make Gradle wrapper executable
         run: chmod +x gradlew
@@ -73,6 +97,7 @@ jobs:
           if-no-files-found: error
 
       - name: Create GitHub prerelease
+        if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: main-${{ github.run_number }}
