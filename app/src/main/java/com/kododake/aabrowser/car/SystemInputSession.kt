@@ -20,10 +20,10 @@ package com.kododake.aabrowser.car
 import android.text.InputType
 import android.view.KeyEvent
 import android.view.View
-import android.webkit.WebView
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.ExtractedTextRequest
 import android.view.inputmethod.InputConnection
+import android.webkit.WebView
 import org.json.JSONObject
 import java.util.concurrent.atomic.AtomicLong
 
@@ -40,9 +40,6 @@ internal class SystemInputSession private constructor(
     private var hasWebViewSnapshot = false
     var editRevision: Int = 0
         private set
-
-    val initialText: String
-        get() = textBuffer.text.orEmpty()
 
     val hint: String
         get() = editorInfo.hintText?.toString()?.takeIf(String::isNotBlank).orEmpty()
@@ -121,7 +118,7 @@ internal class SystemInputSession private constructor(
             if (!inputConnection.setSelection(cursor, cursor)) return false
         }
         textBuffer.setCursorPosition(cursor)
-        updateWebViewText()
+        updateWebViewSelection()
         return true
     }
 
@@ -193,11 +190,6 @@ internal class SystemInputSession private constructor(
         editRevision++
         textBuffer.clear()
         updateWebViewText()
-    }
-
-    fun submit(text: String) {
-        insertText(text)
-        performEditorAction()
     }
 
     fun performEditorAction(): Boolean {
@@ -307,6 +299,42 @@ internal class SystemInputSession private constructor(
                         element.dispatchEvent(new Event("input", { bubbles: true }));
                     }
                     element.dispatchEvent(new Event("change", { bubbles: true }));
+                    return true;
+                })()
+            """.trimIndent(),
+            null
+        )
+    }
+
+    private fun updateWebViewSelection() {
+        if (webView == null || !hasWebViewSnapshot) return
+
+        val start = textBuffer.selectionStart
+        val end = textBuffer.selectionEnd
+        webView.evaluateJavascript(
+            """
+                (function() {
+                    if (window.__aabrowserProjectedTextToken !== $webViewInputToken) {
+                        return false;
+                    }
+                    var element = window.__aabrowserProjectedTextTarget;
+                    if (!element) return false;
+                    try {
+                        if (typeof element.setSelectionRange === "function") {
+                            element.setSelectionRange($start, $end);
+                        } else if (element.isContentEditable) {
+                            var textNode = element.firstChild;
+                            if (textNode) {
+                                var range = element.ownerDocument.createRange();
+                                range.setStart(textNode, Math.min($start, textNode.length));
+                                range.collapse(true);
+                                var selection = element.ownerDocument.getSelection();
+                                selection.removeAllRanges();
+                                selection.addRange(range);
+                            }
+                        }
+                    } catch (ignored) {
+                    }
                     return true;
                 })()
             """.trimIndent(),

@@ -32,6 +32,5 @@ interface BrowserHostContext {
     fun finishHost() {}
     fun recreateHost() {}
     fun launchPickBackground(onPicked: (Uri?) -> Unit)
-    fun requestSystemInput(initialText: String = "", hint: String = "", onSubmitted: (String) -> Unit) {}
     fun onAddressInputFocusChanged(hasFocus: Boolean) {}
 }

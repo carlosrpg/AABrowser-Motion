@@ -24,10 +24,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.FrameLayout
-import android.util.Log
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import com.kododake.aabrowser.BuildConfig
 
 internal class ProjectedBrowserHostView(
     context: Context,
@@ -35,7 +33,6 @@ internal class ProjectedBrowserHostView(
     private val keyboardView: View
 ) : FrameLayout(context) {
     private var appliedSystemBottomInset: Int? = null
-    private var lastDebugMetrics = ""
     private val globalLayoutListener = ViewTreeObserver.OnGlobalLayoutListener {
         updateKeyboardPosition(
             appliedSystemBottomInset
@@ -102,6 +99,7 @@ internal class ProjectedBrowserHostView(
     }
 
     private fun updateKeyboardPosition(systemBottom: Int) {
+        // Auto can cover the lower part of a projected window without resizing its root view.
         val visibleFrame = Rect()
         getWindowVisibleDisplayFrame(visibleFrame)
         val location = IntArray(2)
@@ -112,21 +110,9 @@ internal class ProjectedBrowserHostView(
             (location[1] + height - visibleFrame.bottom).coerceAtLeast(0)
         }
         val bottomInset = maxOf(systemBottom, frameBottom)
-        if (BuildConfig.DEBUG) {
-            val metrics = "host=${width}x$height systemBottom=$systemBottom frameBottom=$frameBottom " +
-                "visible=${visibleFrame.toShortString()} rootY=${location[1]}"
-            if (metrics != lastDebugMetrics) {
-                Log.d(TAG, metrics)
-                lastDebugMetrics = metrics
-            }
-        }
         val params = keyboardView.layoutParams as? LayoutParams ?: return
         if (params.bottomMargin == bottomInset) return
         params.bottomMargin = bottomInset
         keyboardView.layoutParams = params
-    }
-
-    private companion object {
-        const val TAG = "ProjectedBrowserHost"
     }
 }

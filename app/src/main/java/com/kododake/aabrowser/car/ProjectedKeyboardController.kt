@@ -33,6 +33,7 @@ internal class ProjectedKeyboardController(
 ) {
     private var activeInputSession: SystemInputSession? = null
     private var activeInputView: View? = null
+    private var addressInputView: ComposeView? = null
     private var isAddressInputFocused = false
     private var ignoreHiddenKeyboardClickUntil = 0L
 
@@ -82,13 +83,14 @@ internal class ProjectedKeyboardController(
     fun onAddressInputFocusChanged(hasFocus: Boolean) {
         isAddressInputFocused = hasFocus
         if (hasFocus) {
+            (findFocusedView() as? ComposeView)?.let { addressInputView = it }
             view.post {
-                if (isAddressInputFocused) {
-                    val focusedView = findFocusedView()
-                    if (focusedView is ComposeView) activateInput(focusedView)
-                }
+                if (!isAddressInputFocused) return@post
+                val focusedView = findFocusedView() as? ComposeView ?: return@post
+                addressInputView = focusedView
+                activateInput(focusedView)
             }
-        } else {
+        } else if (activeInputView === addressInputView) {
             hide()
         }
     }
@@ -104,7 +106,7 @@ internal class ProjectedKeyboardController(
 
         val focusedView = findFocusedView()
         if (focusedView is ComposeView) {
-            if (!isAddressInputFocused) {
+            if (focusedView === addressInputView && !isAddressInputFocused) {
                 hide()
                 return false
             }
@@ -162,6 +164,7 @@ internal class ProjectedKeyboardController(
 
     fun close() {
         hide()
+        addressInputView = null
     }
 
     fun hideIfVisible(): Boolean {
