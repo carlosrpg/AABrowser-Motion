@@ -15,23 +15,6 @@
  * along with this program.  If not, see <https://gnu.org>.
  */
 
-package com.kododake.aabrowser.ui.compose.screens.menu
+package com.kododake.aabrowser.car
 
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import com.kododake.aabrowser.ui.compose.components.SearchBarComponent
-
-@Composable
-fun MenuAddressBar(
-    url: String,
-    onNavigate: (String) -> Unit,
-    onInputFocusChanged: (Boolean) -> Unit = {},
-    modifier: Modifier = Modifier
-) {
-    SearchBarComponent(
-        initialQuery = url,
-        onNavigate = onNavigate,
-        onInputFocusChanged = onInputFocusChanged,
-        modifier = modifier
-    )
-}
+class FullscreenBrowserActivity : SplitScreenBrowserActivity()

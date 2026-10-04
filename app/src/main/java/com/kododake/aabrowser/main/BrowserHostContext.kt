@@ -15,23 +15,22 @@
  * along with this program.  If not, see <https://gnu.org>.
  */
 
-package com.kododake.aabrowser.ui.compose.screens.menu
+package com.kododake.aabrowser.main
 
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import com.kododake.aabrowser.ui.compose.components.SearchBarComponent
+import android.content.Context
+import android.net.Uri
+import android.view.Window
+import androidx.appcompat.app.AppCompatActivity
+import kotlinx.coroutines.CoroutineScope
 
-@Composable
-fun MenuAddressBar(
-    url: String,
-    onNavigate: (String) -> Unit,
-    onInputFocusChanged: (Boolean) -> Unit = {},
-    modifier: Modifier = Modifier
-) {
-    SearchBarComponent(
-        initialQuery = url,
-        onNavigate = onNavigate,
-        onInputFocusChanged = onInputFocusChanged,
-        modifier = modifier
-    )
+interface BrowserHostContext {
+    val hostContext: Context
+    val hostActivity: AppCompatActivity?
+    val hostWindow: Window?
+    val coroutineScope: CoroutineScope
+
+    fun finishHost() {}
+    fun recreateHost() {}
+    fun launchPickBackground(onPicked: (Uri?) -> Unit)
+    fun onAddressInputFocusChanged(hasFocus: Boolean) {}
 }

@@ -59,6 +59,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -70,6 +71,7 @@ import com.kododake.aabrowser.R
 fun SearchBarComponent(
     initialQuery: String = "",
     onNavigate: (String) -> Unit,
+    onInputFocusChanged: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var queryText by remember { mutableStateOf(initialQuery) }
@@ -141,7 +143,9 @@ fun SearchBarComponent(
                     }
                     innerTextField()
                 },
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .weight(1f)
+                    .onFocusChanged { onInputFocusChanged(it.isFocused) }
             )
 
             AnimatedVisibility(

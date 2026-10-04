@@ -17,7 +17,14 @@
 
 package com.kododake.aabrowser.car
 
+import android.content.Context
+import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.view.MotionEvent
+import android.view.Window
+import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
@@ -32,21 +39,40 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.google.android.apps.auto.sdk.CarActivity
 import com.kododake.aabrowser.R
 import com.kododake.aabrowser.databinding.ActivityMainBinding
+import com.kododake.aabrowser.main.BrowserHostContext
 import com.kododake.aabrowser.main.BrowserShellController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 
-class SplitScreenBrowserActivity : CarActivity(),
+open class SplitScreenBrowserActivity : CarActivity(),
     LifecycleOwner,
     SavedStateRegistryOwner,
-    ViewModelStoreOwner {
+    ViewModelStoreOwner,
+    BrowserHostContext {
+
     private val lifecycleRegistry = LifecycleRegistry(this)
     private val savedStateController = SavedStateRegistryController.create(this)
     private val hostViewModelStore = ViewModelStore()
-    private val coroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val handler = Handler(Looper.getMainLooper())
+    override val coroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    override val hostContext: Context get() = this
+    override val hostActivity: AppCompatActivity? = null
+
+    private var internalWindow: Window? = null
+    override val hostWindow: Window? get() = internalWindow
+
     private var browserShell: BrowserShellController? = null
+    private var projectedKeyboardController: ProjectedKeyboardController? = null
+    private var originalWindowCallback: Window.Callback? = null
+    private var inputWindowCallback: Window.Callback? = null
+    private var lastTouchX = 0f
+    private var lastTouchY = 0f
+
+    private val showProjectedKeyboardAfterInteraction = Runnable {
+        projectedKeyboardController?.requestInput(lastTouchX, lastTouchY)
+    }
 
     override val lifecycle: Lifecycle
         get() = lifecycleRegistry
@@ -56,6 +82,18 @@ class SplitScreenBrowserActivity : CarActivity(),
 
     override val viewModelStore: ViewModelStore
         get() = hostViewModelStore
+
+    override fun launchPickBackground(onPicked: (Uri?) -> Unit) {
+        onPicked(null)
+    }
+
+    override fun finishHost() {
+        finishProjection()
+    }
+
+    override fun onAddressInputFocusChanged(hasFocus: Boolean) {
+        projectedKeyboardController?.onAddressInputFocusChanged(hasFocus)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(R.style.Theme_AABrowser)
@@ -69,6 +107,7 @@ class SplitScreenBrowserActivity : CarActivity(),
         getCarUiController().menuController.hideMenuButton()
 
         val hostWindow = c()
+        internalWindow = hostWindow
         hostWindow.decorView.setViewTreeLifecycleOwner(this)
         hostWindow.decorView.setViewTreeSavedStateRegistryOwner(this)
         hostWindow.decorView.setViewTreeViewModelStoreOwner(this)
@@ -77,16 +116,25 @@ class SplitScreenBrowserActivity : CarActivity(),
         binding.root.setViewTreeLifecycleOwner(this)
         binding.root.setViewTreeSavedStateRegistryOwner(this)
         binding.root.setViewTreeViewModelStoreOwner(this)
-        setContentView(binding.root)
+        val keyboardController = ProjectedKeyboardController(this) {
+            internalWindow?.currentFocus ?: internalWindow?.decorView?.findFocus()
+        }
+        projectedKeyboardController = keyboardController
+        val browserRoot = ProjectedBrowserHostView(
+            this,
+            binding.root,
+            keyboardController.view
+        ).apply {
+            setViewTreeLifecycleOwner(this@SplitScreenBrowserActivity)
+            setViewTreeSavedStateRegistryOwner(this@SplitScreenBrowserActivity)
+            setViewTreeViewModelStoreOwner(this@SplitScreenBrowserActivity)
+        }
+        setContentView(browserRoot)
+        installInputWindowCallback(hostWindow)
 
         browserShell = BrowserShellController(
-            context = this,
-            activity = null,
-            window = hostWindow,
-            coroutineScope = coroutineScope,
-            binding = binding,
-            onPickBackgroundRequested = {},
-            onRecreateRequested = {}
+            hostContext = this,
+            binding = binding
         ).also {
             it.initialize(intent, shouldForceSessionRestore = true)
         }
@@ -98,24 +146,20 @@ class SplitScreenBrowserActivity : CarActivity(),
         browserShell?.onResume()
     }
 
-    override fun onStart() {
-        super.onStart()
-        ProjectionPerspectiveCoordinator.activateLegacy(this)
-    }
-
     override fun onPause() {
+        projectedKeyboardController?.close()
         browserShell?.onPause()
         lifecycleRegistry.currentState = Lifecycle.State.STARTED
         super.onPause()
     }
 
     override fun onStop() {
-        ProjectionPerspectiveCoordinator.deactivateLegacy(this)
         lifecycleRegistry.currentState = Lifecycle.State.CREATED
         super.onStop()
     }
 
     override fun onBackPressed() {
+        if (projectedKeyboardController?.hideIfVisible() == true) return
         if (browserShell?.handleBackPressed() != true) {
             super.onBackPressed()
         }
@@ -127,12 +171,53 @@ class SplitScreenBrowserActivity : CarActivity(),
     }
 
     override fun onDestroy() {
+        handler.removeCallbacks(showProjectedKeyboardAfterInteraction)
+        internalWindow?.let { window ->
+            if (window.callback === inputWindowCallback) {
+                window.callback = originalWindowCallback
+            }
+        }
+        projectedKeyboardController?.close()
+        projectedKeyboardController = null
         browserShell?.onDestroy()
         browserShell = null
         lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
         coroutineScope.cancel()
         hostViewModelStore.clear()
         super.onDestroy()
+    }
+
+    private companion object {
+        const val TEXT_INPUT_FOCUS_DELAY_MS = 75L
+    }
+
+    private fun installInputWindowCallback(window: Window) {
+        val originalCallback = window.callback ?: return
+        originalWindowCallback = originalCallback
+        val inputCallback = object : Window.Callback by originalCallback {
+            override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+                val handled = originalCallback.dispatchTouchEvent(event)
+                if (event.actionMasked == MotionEvent.ACTION_UP) {
+                    lastTouchX = event.x
+                    lastTouchY = event.y
+                    val keyboardTouch = projectedKeyboardController?.consumeKeyboardTouch() == true ||
+                        projectedKeyboardController?.isKeyboardTouch(lastTouchX, lastTouchY) == true
+                    if (keyboardTouch
+                    ) {
+                        handler.removeCallbacks(showProjectedKeyboardAfterInteraction)
+                        return handled
+                    }
+                    handler.removeCallbacks(showProjectedKeyboardAfterInteraction)
+                    handler.postDelayed(
+                        showProjectedKeyboardAfterInteraction,
+                        TEXT_INPUT_FOCUS_DELAY_MS
+                    )
+                }
+                return handled
+            }
+        }
+        inputWindowCallback = inputCallback
+        window.callback = inputCallback
     }
 
     fun finishProjection() {

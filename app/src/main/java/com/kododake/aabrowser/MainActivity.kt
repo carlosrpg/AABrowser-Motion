@@ -19,7 +19,9 @@ package com.kododake.aabrowser
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.view.Window
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
@@ -27,16 +29,39 @@ import androidx.lifecycle.lifecycleScope
 import com.google.android.material.color.DynamicColors
 import com.kododake.aabrowser.data.BrowserPreferences
 import com.kododake.aabrowser.databinding.ActivityMainBinding
+import com.kododake.aabrowser.main.BrowserHostContext
 import com.kododake.aabrowser.main.BrowserShellController
 import com.kododake.aabrowser.main.WebViewWarmupHelper
+import kotlinx.coroutines.CoroutineScope
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), BrowserHostContext {
     private lateinit var binding: ActivityMainBinding
     private lateinit var browserShell: BrowserShellController
+    private var pendingPickBackgroundCallback: ((Uri?) -> Unit)? = null
+
+    override val hostContext: Context get() = this
+    override val hostActivity: AppCompatActivity get() = this
+    override val hostWindow: Window? get() = window
+    override val coroutineScope: CoroutineScope get() = lifecycleScope
+
+    override fun finishHost() {
+        finish()
+    }
+
+    override fun recreateHost() {
+        recreate()
+    }
+
+    override fun launchPickBackground(onPicked: (Uri?) -> Unit) {
+        pendingPickBackgroundCallback = onPicked
+        pickStartPageBackgroundLauncher.launch(arrayOf("image/*"))
+    }
 
     private val pickStartPageBackgroundLauncher = registerForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
+        pendingPickBackgroundCallback?.invoke(uri)
+        pendingPickBackgroundCallback = null
         if (::browserShell.isInitialized) {
             browserShell.onStartPageBackgroundPicked(uri)
         }
@@ -56,15 +81,8 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         browserShell = BrowserShellController(
-            context = this,
-            activity = this,
-            window = window,
-            coroutineScope = lifecycleScope,
-            binding = binding,
-            onPickBackgroundRequested = {
-                pickStartPageBackgroundLauncher.launch(arrayOf("image/*"))
-            },
-            onRecreateRequested = ::recreate
+            hostContext = this,
+            binding = binding
         )
         browserShell.initialize(intent, savedInstanceState != null)
     }

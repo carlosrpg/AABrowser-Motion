@@ -45,6 +45,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.kododake.aabrowser.R
 import com.kododake.aabrowser.data.SiteIconCache
@@ -55,12 +56,13 @@ fun SiteIconBadge(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var bitmap by remember(url) {
-        mutableStateOf<Bitmap?>(SiteIconCache.getCachedIcon(context, url))
+    val bundledIcon = remember(url) { bundledQuickLinkIconResource(url) }
+    var bitmap by remember(url, bundledIcon) {
+        mutableStateOf<Bitmap?>(if (bundledIcon == null) SiteIconCache.getCachedIcon(context, url) else null)
     }
 
-    LaunchedEffect(url) {
-        if (bitmap == null && !url.isNullOrBlank()) {
+    LaunchedEffect(url, bundledIcon) {
+        if (bundledIcon == null && bitmap == null && !url.isNullOrBlank()) {
             SiteIconCache.prefetchIconIfNeeded(context, url) { fetched ->
                 bitmap = fetched
             }
@@ -96,6 +98,16 @@ fun SiteIconBadge(
                 tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
                 modifier = Modifier.size(26.dp)
             )
+        } else if (bundledIcon != null) {
+            Image(
+                painter = painterResource(bundledIcon),
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(6.dp)
+                    .clip(RoundedCornerShape(8.dp))
+            )
         } else if (bitmap != null) {
             Image(
                 bitmap = bitmap!!.asImageBitmap(),
@@ -117,3 +129,14 @@ fun SiteIconBadge(
         }
     }
 }
+
+private fun bundledQuickLinkIconResource(url: String?): Int? =
+    when (SiteIconCache.extractHost(url)) {
+        "google.com" -> R.drawable.quicklink_google
+        "youtube.com" -> R.drawable.quicklink_youtube
+        "globoplay.com", "globoplay.globo.com" -> R.drawable.quicklink_globoplay
+        "youtubekids.com", "kids.youtube.com" -> R.drawable.quicklink_youtube_kids
+        "clarotvmais.com.br" -> R.drawable.quicklink_claro_tv_mais
+        "crunchyroll.com" -> R.drawable.quicklink_crunchyroll
+        else -> null
+    }

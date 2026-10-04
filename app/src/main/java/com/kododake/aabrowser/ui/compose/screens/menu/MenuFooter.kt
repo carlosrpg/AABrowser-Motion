@@ -18,19 +18,13 @@
 package com.kododake.aabrowser.ui.compose.screens.menu
 
 import androidx.compose.foundation.border
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -38,21 +32,17 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.kododake.aabrowser.R
 import com.kododake.aabrowser.ui.compose.components.bouncyClickable
 
 @Composable
 fun MenuFooter(
     versionName: String,
-    onCheckUpdate: () -> Unit,
     onGitHub: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -80,33 +70,6 @@ fun MenuFooter(
                     modifier = Modifier.padding(top = 2.dp)
                 )
             }
-
-            val checkUpdateInteraction = remember { MutableInteractionSource() }
-            FilledTonalButton(
-                onClick = onCheckUpdate,
-                interactionSource = checkUpdateInteraction,
-                shape = RoundedCornerShape(21.dp),
-                colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                ),
-                modifier = Modifier
-                    .height(42.dp)
-                    .padding(horizontal = 4.dp)
-                    .bouncyClickable(
-                        interactionSource = checkUpdateInteraction,
-                        shape = RoundedCornerShape(21.dp),
-                        onClick = onCheckUpdate
-                    )
-            ) {
-                Text(
-                    text = stringResource(R.string.menu_check_latest),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-
-            Spacer(Modifier.width(8.dp))
 
             val githubBg = if (isSystemInDarkTheme()) {
                 MaterialTheme.colorScheme.surfaceContainerHigh
