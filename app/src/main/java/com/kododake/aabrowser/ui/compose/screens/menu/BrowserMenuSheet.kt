@@ -43,6 +43,10 @@ fun BrowserMenuSheet(
     if (isReturning) {
         stateHolder.isReturningFromSubscreen = false
     }
+    fun dismissKeyboardBefore(action: () -> Unit) {
+        actions.onAddressInputFocusChanged(false)
+        action()
+    }
 
     ExpressiveBottomSheetContainer(
         isVisible = stateHolder.isMenuVisible,
@@ -64,14 +68,16 @@ fun BrowserMenuSheet(
         ) {
             MenuHeaderComponent(
                 pageTitle = stateHolder.pageTitle,
-                onClose = actions.onClose
+                onClose = { dismissKeyboardBefore(actions.onClose) }
             )
 
             Spacer(Modifier.height(12.dp))
 
             MenuAddressBar(
                 url = stateHolder.url,
-                onNavigate = actions.onNavigate,
+                onNavigate = { url ->
+                    dismissKeyboardBefore { actions.onNavigate(url) }
+                },
                 onInputFocusChanged = actions.onAddressInputFocusChanged
             )
 
@@ -81,43 +87,46 @@ fun BrowserMenuSheet(
                 canGoBack = stateHolder.canGoBack,
                 canGoForward = stateHolder.canGoForward,
                 canReload = stateHolder.canReload,
-                onBack = actions.onBack,
-                onForward = actions.onForward,
-                onReload = actions.onReload
+                onBack = { dismissKeyboardBefore(actions.onBack) },
+                onForward = { dismissKeyboardBefore(actions.onForward) },
+                onReload = { dismissKeyboardBefore(actions.onReload) }
             )
 
             Spacer(Modifier.height(10.dp))
 
             MenuQuickActionsGrid(
-                onBookmarks = actions.onBookmarks,
-                onQrCode = actions.onQrCode,
+                onBookmarks = { dismissKeyboardBefore(actions.onBookmarks) },
+                onQrCode = { dismissKeyboardBefore(actions.onQrCode) },
                 canQrCode = stateHolder.canQrCode,
-                onSettings = actions.onSettings,
-                onHome = actions.onHome,
-                onTabs = actions.onTabs,
-                onNewTab = actions.onNewTab
+                onSettings = { dismissKeyboardBefore(actions.onSettings) },
+                onHome = { dismissKeyboardBefore(actions.onHome) },
+                onTabs = { dismissKeyboardBefore(actions.onTabs) },
+                onNewTab = { dismissKeyboardBefore(actions.onNewTab) }
             )
 
             Spacer(Modifier.height(10.dp))
 
             MenuDesktopSwitchCard(
                 isDesktopMode = stateHolder.isDesktopMode,
-                onDesktopToggle = actions.onDesktopToggle
+                onDesktopToggle = { checked ->
+                    dismissKeyboardBefore { actions.onDesktopToggle(checked) }
+                }
             )
 
             Spacer(Modifier.height(8.dp))
 
             MenuFullscreenSwitchCard(
                 isFullscreenMode = stateHolder.isFullscreenMode,
-                onFullscreenToggle = actions.onFullscreenToggle
+                onFullscreenToggle = { checked ->
+                    dismissKeyboardBefore { actions.onFullscreenToggle(checked) }
+                }
             )
 
             Spacer(Modifier.height(4.dp))
 
             MenuFooter(
                 versionName = stateHolder.versionName,
-                onCheckUpdate = actions.onCheckUpdate,
-                onGitHub = actions.onGitHub
+                onGitHub = { dismissKeyboardBefore(actions.onGitHub) }
             )
 
             Spacer(Modifier.height(16.dp))

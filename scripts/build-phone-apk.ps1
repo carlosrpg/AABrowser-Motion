@@ -162,10 +162,8 @@ try {
     $manifestDump = (& $aapt dump xmltree $apk.FullName AndroidManifest.xml 2>&1) -join "`n"
     $requiredManifestEntries = @(
         'com.google.android.gms.car.application',
-        'androidx.car.app.minCarApiLevel',
-        'androidx.car.app.CarAppService',
-        'androidx.car.app.category.NAVIGATION',
         'com.kododake.aabrowser.car.SplitScreenProjectionService',
+        'com.kododake.aabrowser.car.FullscreenCarService',
         'com.google.android.gms.car.category.CATEGORY_PROJECTION',
         'com.google.android.gms.car.category.CATEGORY_PROJECTION_OEM',
         'com.kododake.aabrowser.MainActivity',
@@ -173,7 +171,7 @@ try {
     )
     foreach ($entry in $requiredManifestEntries) {
         if ($manifestDump -notmatch [regex]::Escape($entry)) {
-            throw "Packaged manifest is missing required car entry: $entry"
+            throw "Packaged manifest is missing required entry: $entry"
         }
     }
 
@@ -187,7 +185,7 @@ try {
     $automotiveDescriptorDump = (
         & $apkAnalyzer resources xml --file $automotiveDescriptorPath.Trim() $apk.FullName 2>&1
     ) -join "`n"
-    foreach ($capability in @('service', 'projection', 'template')) {
+    foreach ($capability in @('service', 'projection')) {
         if ($automotiveDescriptorDump -notmatch $capability) {
             throw "Packaged automotive_app_desc.xml does not declare the $capability capability."
         }

@@ -62,6 +62,7 @@ fun SettingsSheet(
             isScrollable = true,
             applyBackground = false,
             applyTheme = false,
+            inlineChoiceDialogs = true,
             sessionKey = sessionKey,
             callbacks = callbacks.copy(onClose = onClose, onDismiss = onDismiss),
             modifier = Modifier.fillMaxSize()

@@ -37,6 +37,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -57,6 +58,7 @@ import com.kododake.aabrowser.ui.compose.screens.settings.sections.NavigationSet
 import com.kododake.aabrowser.ui.compose.screens.settings.sections.PrivacyAndAboutComposable
 import com.kododake.aabrowser.ui.compose.screens.settings.sections.StartPageSettingsComposable
 import com.kododake.aabrowser.ui.compose.theme.AABrowserTheme
+import com.kododake.aabrowser.ui.compose.screens.dialogs.LocalInlineSingleChoiceDialogs
 
 @Composable
 fun SettingsScreen(
@@ -66,6 +68,7 @@ fun SettingsScreen(
     isScrollable: Boolean = false,
     applyBackground: Boolean = true,
     applyTheme: Boolean = true,
+    inlineChoiceDialogs: Boolean = false,
     sessionKey: Int = 0,
     callbacks: SettingsCallbacks = SettingsCallbacks(),
     modifier: Modifier = Modifier
@@ -208,9 +211,13 @@ fun SettingsScreen(
         }
     }
 
-    if (applyTheme) {
-        AABrowserTheme { ScreenBody() }
-    } else {
-        ScreenBody()
+    CompositionLocalProvider(
+        LocalInlineSingleChoiceDialogs provides inlineChoiceDialogs
+    ) {
+        if (applyTheme) {
+            AABrowserTheme { ScreenBody() }
+        } else {
+            ScreenBody()
+        }
     }
 }

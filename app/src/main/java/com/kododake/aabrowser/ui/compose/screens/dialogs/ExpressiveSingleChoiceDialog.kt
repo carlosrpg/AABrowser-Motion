@@ -39,6 +39,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -48,6 +49,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.kododake.aabrowser.ui.compose.components.bouncyClickable
 import com.kododake.aabrowser.ui.compose.theme.ExpressiveTypography
+
+val LocalInlineSingleChoiceDialogs = compositionLocalOf { false }
 
 @Composable
 fun <T> ExpressiveSingleChoiceDialog(
@@ -64,7 +67,8 @@ fun <T> ExpressiveSingleChoiceDialog(
     val maxHeight = (configuration.screenHeightDp * 0.88f).dp
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-    Dialog(onDismissRequest = onDismiss) {
+    @Composable
+    fun DialogContent() {
         Surface(
             shape = RoundedCornerShape(28.dp),
             color = MaterialTheme.colorScheme.surfaceContainer,
@@ -150,6 +154,14 @@ fun <T> ExpressiveSingleChoiceDialog(
                     }
                 }
             }
+        }
+    }
+
+    if (LocalInlineSingleChoiceDialogs.current) {
+        DialogContent()
+    } else {
+        Dialog(onDismissRequest = onDismiss) {
+            DialogContent()
         }
     }
 }

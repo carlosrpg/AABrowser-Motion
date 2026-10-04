@@ -31,7 +31,6 @@ data class MenuActions(
     val onTabs: () -> Unit = {},
     val onBookmarks: () -> Unit = {},
     val onQrCode: () -> Unit = {},
-    val onCheckUpdate: () -> Unit = {},
     val onSettings: () -> Unit = {},
     val onNavigate: (String) -> Unit = {},
     val onAddressInputFocusChanged: (Boolean) -> Unit = {},

@@ -143,9 +143,6 @@ class MainActivitySetup(
             onQrCode = {
                 managers.overlayCoordinator.openQrCode(actions.getCurrentUrl(), fromMenu = true)
             },
-            onCheckUpdate = {
-                managers.overlayCoordinator.openVersion(fromMenu = true)
-            },
             onSettings = {
                 managers.overlayCoordinator.openSettings(fromMenu = true)
             },

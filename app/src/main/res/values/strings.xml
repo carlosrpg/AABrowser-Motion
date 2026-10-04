@@ -1,12 +1,12 @@
 <resources>
-    <string name="app_name">AA Browser Motion</string>
+    <string name="app_name">Browser - AA Browser Motion</string>
     <string name="app_credit">AA Browser Motion — by carlosrpg</string>
     <string name="author_name">carlosrpg</string>
     <string name="menu_title">AA Browser Motion</string>
     <string name="menu_close">Close</string>
     <string name="menu_address_label">Address or search</string>
     <string name="car_browser_action_label">AA Browser</string>
-    <string name="split_screen_app_name">AA Browser Motion - Split Screen</string>
+    <string name="split_screen_app_name">Browser Split - AA Browser Motion</string>
     
     <string name="secure_connection">Secure connection</string>
     <string name="insecure_connection">Insecure connection</string>

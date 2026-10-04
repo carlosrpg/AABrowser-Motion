@@ -42,8 +42,8 @@
         <!-- KeyboardView requires a popup layout to dispatch its long-press callback. -->
         <item name="android:popupLayout">@layout/inline_keyboard_popup_gate</item>
         <item name="android:keyTextColor">@color/projected_keyboard_text</item>
-        <item name="android:keyTextSize">18sp</item>
-        <item name="android:labelTextSize">14sp</item>
+        <item name="android:keyTextSize">22sp</item>
+        <item name="android:labelTextSize">18sp</item>
         <item name="android:shadowColor">@android:color/transparent</item>
         <item name="android:shadowRadius">0</item>
     </style>

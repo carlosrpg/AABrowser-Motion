@@ -18,14 +18,18 @@
 package com.kododake.aabrowser.car
 
 import android.content.Context
+import android.content.res.Configuration
 import android.os.SystemClock
 import android.util.Log
 import android.view.View
+import android.view.ContextThemeWrapper
 import android.webkit.WebView
 import androidx.compose.ui.platform.ComposeView
+import com.kododake.aabrowser.R
+import com.kododake.aabrowser.data.BrowserPreferences
+import com.kododake.aabrowser.model.AppThemeMode
 import org.json.JSONException
 import org.json.JSONObject
-import java.util.Locale
 
 internal class ProjectedKeyboardController(
     context: Context,
@@ -39,7 +43,7 @@ internal class ProjectedKeyboardController(
     private var keyboardTouchDispatched = false
 
     val view = ProjectedKeyboardView(
-        context,
+        createKeyboardContext(context),
         object : ProjectedKeyboardView.Listener {
             override fun onText(text: String) {
                 activeInputSession?.insertText(text)
@@ -69,8 +73,6 @@ internal class ProjectedKeyboardController(
                 hide()
             }
 
-            override fun onLanguageChanged(locale: Locale) = Unit
-
             override fun onPreviewCursorChanged(position: Int) {
                 if (activeInputSession?.setCursorPosition(position) == true) {
                     refreshPreview()
@@ -98,7 +100,7 @@ internal class ProjectedKeyboardController(
                 addressInputView = focusedView
                 activateInput(focusedView)
             }
-        } else if (activeInputView === addressInputView) {
+        } else {
             hide()
         }
     }
@@ -154,13 +156,16 @@ internal class ProjectedKeyboardController(
                 ) {
                     return@evaluateJavascript
                 }
-                readWebInputSnapshot(result)?.let { snapshot ->
-                    inputSession.setTextSnapshot(
-                        snapshot.text,
-                        snapshot.selectionStart,
-                        snapshot.selectionEnd
-                    )
+                val snapshot = readWebInputSnapshot(result)
+                if (snapshot == null) {
+                    hide()
+                    return@evaluateJavascript
                 }
+                inputSession.setTextSnapshot(
+                    snapshot.text,
+                    snapshot.selectionStart,
+                    snapshot.selectionEnd
+                )
                 view.visibility = View.VISIBLE
                 refreshPreview()
             }
@@ -229,6 +234,21 @@ internal class ProjectedKeyboardController(
         val selectionStart: Int,
         val selectionEnd: Int
     )
+
+    private fun createKeyboardContext(context: Context): Context {
+        val nightMode = when (BrowserPreferences.getThemeMode(context)) {
+            AppThemeMode.AUTO -> return context
+            AppThemeMode.LIGHT -> Configuration.UI_MODE_NIGHT_NO
+            AppThemeMode.DARK -> Configuration.UI_MODE_NIGHT_YES
+        }
+        val configuration = Configuration(context.resources.configuration).apply {
+            uiMode = (uiMode and Configuration.UI_MODE_NIGHT_MASK.inv()) or nightMode
+        }
+        return ContextThemeWrapper(
+            context.createConfigurationContext(configuration),
+            R.style.Theme_AABrowser
+        )
+    }
 
     private companion object {
         const val HIDDEN_KEYBOARD_CLICK_SUPPRESSION_MS = 500L
