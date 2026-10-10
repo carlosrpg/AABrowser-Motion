@@ -7,13 +7,9 @@ This repository is a fork of [kododake/AABrowser](https://github.com/kododake/AA
 > [!WARNING]
 > AA Browser Motion is intended for development, testing, and use only while safely parked. Do not interact with the app while driving. Follow local laws and keep your attention on the road.
 
-## Features
+## New Features
 
-- Material 3 Expressive interface designed for wide car displays
-- Multi-tab WebView browsing with session restore
-- Bookmarks and configurable start-page quick links
-- Mobile, desktop, and custom user-agent profiles
-- Fullscreen media, QR sharing, site permissions, and display scaling
+- Two Android Auto car modes: split-screen and fullscreen
 
 ## Requirements
 

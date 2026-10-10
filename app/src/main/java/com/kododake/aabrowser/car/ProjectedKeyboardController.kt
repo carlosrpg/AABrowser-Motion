@@ -33,7 +33,8 @@ import org.json.JSONObject
 
 internal class ProjectedKeyboardController(
     context: Context,
-    private val findFocusedView: () -> View?
+    private val findFocusedView: () -> View?,
+    private val onExternalInputRequested: ((SystemInputSession) -> Unit)? = null
 ) {
     private var activeInputSession: SystemInputSession? = null
     private var activeInputView: View? = null
@@ -41,6 +42,7 @@ internal class ProjectedKeyboardController(
     private var isAddressInputFocused = false
     private var ignoreHiddenKeyboardClickUntil = 0L
     private var keyboardTouchDispatched = false
+    private var externalInputSession: SystemInputSession? = null
 
     val view = ProjectedKeyboardView(
         createKeyboardContext(context),
@@ -120,7 +122,11 @@ internal class ProjectedKeyboardController(
                 hide()
                 return false
             }
-            if (activeInputView === focusedView && view.visibility == View.VISIBLE) return true
+            if (activeInputView === focusedView &&
+                (view.visibility == View.VISIBLE || externalInputSession === activeInputSession)
+            ) {
+                return true
+            }
         }
         return activateInput(focusedView)
     }
@@ -143,6 +149,7 @@ internal class ProjectedKeyboardController(
         activeInputSession?.endEditing()
         activeInputSession = inputSession
         activeInputView = focusedView
+        externalInputSession = null
         view.configure(inputSession.editorInfo)
         view.setInputSession(inputSession)
 
@@ -166,11 +173,9 @@ internal class ProjectedKeyboardController(
                     snapshot.selectionStart,
                     snapshot.selectionEnd
                 )
-                view.visibility = View.VISIBLE
-                refreshPreview()
+                showInput(inputSession)
             }
         } else {
-            view.visibility = View.VISIBLE
             try {
                 inputSession.readExtractedText()
             } catch (error: AssertionError) {
@@ -178,14 +183,41 @@ internal class ProjectedKeyboardController(
             } catch (error: IllegalStateException) {
                 Log.w(TAG, "Focused editor text is temporarily unavailable", error)
             }
-            refreshPreview()
+            showInput(inputSession)
         }
         return true
+    }
+
+    private fun showInput(session: SystemInputSession) {
+        if (session.supportsHostTextInput && onExternalInputRequested != null) {
+            view.visibility = View.GONE
+            externalInputSession = session
+            onExternalInputRequested.invoke(session)
+        } else {
+            externalInputSession = null
+            view.visibility = View.VISIBLE
+            refreshPreview()
+        }
     }
 
     fun close() {
         hide()
         addressInputView = null
+    }
+
+    fun submitExternalInput(session: SystemInputSession, text: String): Boolean {
+        if (activeInputSession !== session || externalInputSession !== session) return false
+        if (!session.replaceText(text)) {
+            Log.w(TAG, "Unable to replace text from the Android Auto input screen")
+            return false
+        }
+        session.performEditorAction()
+        hide()
+        return true
+    }
+
+    fun dismissExternalInput(session: SystemInputSession) {
+        if (externalInputSession === session) hide()
     }
 
     fun hideIfVisible(): Boolean {
@@ -204,6 +236,7 @@ internal class ProjectedKeyboardController(
         activeInputSession?.endEditing()
         activeInputSession = null
         activeInputView = null
+        externalInputSession = null
         view.visibility = View.GONE
         view.clearInputSession()
     }

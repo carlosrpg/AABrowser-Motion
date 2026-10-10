@@ -113,8 +113,8 @@ if (-not $androidSdk -or -not (Test-Path $androidSdk)) {
 }
 
 if (-not (Get-ChildItem (Join-Path $androidSdk 'platforms') -Directory -Filter 'android-37*' -ErrorAction SilentlyContinue |
-    Where-Object { Test-Path (Join-Path $_.FullName 'android.jar') } |
-    Select-Object -First 1)) {
+            Where-Object { Test-Path (Join-Path $_.FullName 'android.jar') } |
+            Select-Object -First 1)) {
     throw "Android SDK platform 37 was not found under $androidSdk\platforms."
 }
 
@@ -162,10 +162,15 @@ try {
     $manifestDump = (& $aapt dump xmltree $apk.FullName AndroidManifest.xml 2>&1) -join "`n"
     $requiredManifestEntries = @(
         'com.google.android.gms.car.application',
+        'androidx.car.app.minCarApiLevel',
+        'androidx.car.app.ACCESS_SURFACE',
         'com.kododake.aabrowser.car.SplitScreenProjectionService',
-        'com.kododake.aabrowser.car.FullscreenCarService',
         'com.google.android.gms.car.category.CATEGORY_PROJECTION',
         'com.google.android.gms.car.category.CATEGORY_PROJECTION_OEM',
+        'com.kododake.aabrowser.car.FullscreenCarService',
+        'androidx.car.app.CarAppService',
+        'androidx.car.app.category.NAVIGATION',
+        'androidx.car.app.NAVIGATION_TEMPLATES',
         'com.kododake.aabrowser.MainActivity',
         'android.intent.category.LAUNCHER'
     )
@@ -185,7 +190,7 @@ try {
     $automotiveDescriptorDump = (
         & $apkAnalyzer resources xml --file $automotiveDescriptorPath.Trim() $apk.FullName 2>&1
     ) -join "`n"
-    foreach ($capability in @('service', 'projection')) {
+    foreach ($capability in @('service', 'projection', 'template')) {
         if ($automotiveDescriptorDump -notmatch $capability) {
             throw "Packaged automotive_app_desc.xml does not declare the $capability capability."
         }
@@ -202,8 +207,9 @@ try {
     Write-Host "Install with: adb install -r `"$distApk`""
     Write-Host ''
     Write-Host 'If a differently signed build is currently installed, uninstall it once before installing this release:' -ForegroundColor Yellow
-    Write-Host 'adb uninstall com.kododake.aabrowser'
+    Write-Host 'adb uninstall com.carlosrpg.aabrowser'
     Write-Host "adb install `"$distApk`""
-} finally {
+}
+finally {
     Pop-Location
 }

@@ -58,6 +58,10 @@ internal class SystemInputSession private constructor(
             }
         }
 
+    val supportsHostTextInput: Boolean
+        get() = !isSecureInput &&
+            editorInfo.inputType and InputType.TYPE_MASK_CLASS == InputType.TYPE_CLASS_TEXT
+
     val previewText: String?
         get() = textBuffer.text
 
@@ -109,6 +113,23 @@ internal class SystemInputSession private constructor(
     fun setTextSnapshot(text: String, start: Int, end: Int) {
         textBuffer.setSnapshot(text, start, end)
         hasWebViewSnapshot = webView != null
+    }
+
+    fun replaceText(value: String): Boolean {
+        val currentText = textBuffer.text
+        if (webView == null || !hasWebViewSnapshot) {
+            if (currentText != null &&
+                !inputConnection.setSelection(0, currentText.length)
+            ) {
+                return false
+            }
+            if (!inputConnection.commitText(value, 1)) return false
+        }
+
+        editRevision++
+        textBuffer.setSnapshot(value, value.length, value.length)
+        updateWebViewText()
+        return true
     }
 
     fun setCursorPosition(position: Int): Boolean {

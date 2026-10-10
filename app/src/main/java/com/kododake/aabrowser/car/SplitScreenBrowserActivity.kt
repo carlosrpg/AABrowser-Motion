@@ -116,9 +116,12 @@ open class SplitScreenBrowserActivity : CarActivity(),
         binding.root.setViewTreeLifecycleOwner(this)
         binding.root.setViewTreeSavedStateRegistryOwner(this)
         binding.root.setViewTreeViewModelStoreOwner(this)
-        val keyboardController = ProjectedKeyboardController(this) {
-            internalWindow?.currentFocus ?: internalWindow?.decorView?.findFocus()
-        }
+        val keyboardController = ProjectedKeyboardController(
+            context = this,
+            findFocusedView = {
+                internalWindow?.currentFocus ?: internalWindow?.decorView?.findFocus()
+            }
+        )
         projectedKeyboardController = keyboardController
         val browserRoot = ProjectedBrowserHostView(
             this,
