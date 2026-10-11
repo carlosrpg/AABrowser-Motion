@@ -82,7 +82,7 @@ internal fun BmcTabContent(
             SponsorQrCard {
                 Image(
                     painter = painterResource(R.drawable.bmc_qr_code),
-                    contentDescription = "Buy Me a Coffee QR",
+                    contentDescription = stringResource(R.string.sponsor_bmc_qr_accessibility),
                     modifier = Modifier.size(92.dp)
                 )
             }
@@ -157,7 +157,7 @@ internal fun GithubTabContent(
                 SponsorQrCard {
                     Image(
                         bitmap = qrBitmap.asImageBitmap(),
-                        contentDescription = "GitHub Sponsors QR",
+                        contentDescription = stringResource(R.string.sponsor_github_qr_accessibility),
                         modifier = Modifier.size(92.dp)
                     )
                 }

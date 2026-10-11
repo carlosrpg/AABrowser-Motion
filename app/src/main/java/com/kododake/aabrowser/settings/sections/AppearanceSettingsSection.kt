@@ -54,7 +54,7 @@ object AppearanceSettingsSection {
             AppThemeMode.DARK -> context.getString(R.string.settings_theme_dark)
         }
         val themeRow = builder.createSettingRow(
-            title = "App Theme",
+            title = context.getString(R.string.settings_dialog_app_theme),
             statusText = themeStatusText,
             iconRes = R.drawable.settings_24px
         ) {
@@ -69,7 +69,7 @@ object AppearanceSettingsSection {
                 AppThemeMode.DARK -> 2
             }
             MaterialAlertDialogBuilder(context, com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
-                .setTitle("Select Theme")
+                .setTitle(R.string.settings_dialog_select_theme)
                 .setSingleChoiceItems(themes, selectedIndex) { dialog, which ->
                     dialog.dismiss()
                     val newMode = when (which) {

@@ -17,7 +17,6 @@
 
 package com.kododake.aabrowser.main
 
-import com.kododake.aabrowser.analytics.UmamiTracker
 import com.kododake.aabrowser.bookmarks.BookmarkManager
 import com.kododake.aabrowser.navigation.NavigationManager
 import com.kododake.aabrowser.permissions.PermissionManager
@@ -31,7 +30,6 @@ import com.kododake.aabrowser.ui.ThemeManager
  * Provider interface to resolve managers lazily on demand, breaking circular dependency cycles during initialization.
  */
 interface BrowserManagersProvider {
-    val umamiTracker: UmamiTracker
     val themeManager: ThemeManager
     val permissionManager: PermissionManager
     val bookmarkManager: BookmarkManager

@@ -77,7 +77,7 @@ android {
     androidComponents {
         onVariants { variant ->
             val vNameStr = android.defaultConfig.versionName ?: "unknown"
-            val appNameStr = "AABrowser-Motion"
+            val appNameStr = "Motion"
             val isDebug = variant.buildType == "debug"
             val debugSuffixStr = if (isDebug) "_debug" else ""
 
@@ -134,7 +134,6 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.google.oss.licenses)
-    implementation("com.github.woheller69:FreeDroidWarn:V1.+")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -88,7 +88,7 @@ fun QrUrlCard(
                 Spacer(Modifier.width(8.dp))
                 Icon(
                     Icons.Rounded.ContentCopy,
-                    contentDescription = "Copy URL",
+                    contentDescription = stringResource(R.string.qr_code_copy_url),
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(20.dp)
                 )
@@ -115,7 +115,7 @@ fun QrUrlCard(
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(Modifier.width(8.dp))
-                Text("Copy URL")
+                Text(stringResource(R.string.qr_code_copy_url))
             }
 
             Button(

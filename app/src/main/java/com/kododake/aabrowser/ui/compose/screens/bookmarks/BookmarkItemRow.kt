@@ -50,6 +50,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.kododake.aabrowser.R
 import com.kododake.aabrowser.ui.compose.components.ListGroupPosition
 import com.kododake.aabrowser.ui.compose.components.bouncyClickable
 
@@ -161,7 +163,7 @@ fun BookmarkItemRow(
             ) {
                 Icon(
                     Icons.Rounded.PushPin,
-                    contentDescription = "Pin to Start Page",
+                    contentDescription = stringResource(R.string.bookmark_pin_start_page),
                     tint = if (item.slotIndex >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
                 )
             }
@@ -172,7 +174,7 @@ fun BookmarkItemRow(
             ) {
                 Icon(
                     Icons.Rounded.Delete,
-                    contentDescription = "Delete Bookmark",
+                    contentDescription = stringResource(R.string.bookmark_delete),
                     tint = MaterialTheme.colorScheme.error
                 )
             }

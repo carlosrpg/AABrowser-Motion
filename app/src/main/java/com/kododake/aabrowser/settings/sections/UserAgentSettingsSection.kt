@@ -62,7 +62,7 @@ object UserAgentSettingsSection {
             )
             val selectedIndex = if (currentProfile == UserAgentProfile.SAFARI) 1 else 0
             MaterialAlertDialogBuilder(context, com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
-                .setTitle("Select User Agent")
+                .setTitle(R.string.settings_dialog_select_user_agent)
                 .setSingleChoiceItems(uaOptions, selectedIndex) { dialog, which ->
                     dialog.dismiss()
                     val selectedProfile = if (which == 1) UserAgentProfile.SAFARI else UserAgentProfile.ANDROID_CHROME

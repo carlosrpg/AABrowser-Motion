@@ -22,9 +22,11 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.net.Uri
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.provider.MediaStore
 import android.util.Log
 import android.webkit.WebView
 import android.support.v4.media.MediaMetadataCompat
@@ -61,6 +63,103 @@ internal class BrowserWebMediaController(
     private var artworkUrl: String? = null
     private var artworkBitmap: Bitmap? = null
     private var artworkRequestId = 0L
+    private var startupYouTubePlaybackChecked = false
+    private var youtubeSearchRequestId = 0L
+    private var pendingYoutubeSearchRequestId: Long? = null
+    private var pendingYoutubeSearchTerms: String? = null
+    private var youtubeSearchAttempts = 0
+    private var pendingYoutubeAutoplayVideoId: String? = null
+    private var youtubeAutoplayAttempts = 0
+
+    private val youtubeSearchAttempt = object : Runnable {
+        override fun run() {
+            val requestId = pendingYoutubeSearchRequestId ?: return
+            val webView = getWebView()
+            if (isDestroyed || webView == null) {
+                pendingYoutubeSearchRequestId = null
+                pendingYoutubeSearchTerms = null
+                Log.w(TAG, "Unable to select a YouTube result without an active WebView")
+                return
+            }
+
+            if (youtubeSearchAttempts >= MAX_YOUTUBE_SEARCH_ATTEMPTS) {
+                pendingYoutubeSearchRequestId = null
+                pendingYoutubeSearchTerms = null
+                Log.w(TAG, "No playable YouTube result appeared for media voice search")
+                return
+            }
+            youtubeSearchAttempts++
+
+            val searchUri = Uri.parse(webView.url.orEmpty())
+            if (!isYouTubeHost(searchUri.host.orEmpty()) ||
+                searchUri.path != "/results" ||
+                searchUri.getQueryParameter("search_query") != pendingYoutubeSearchTerms
+            ) {
+                handler.postDelayed(this, YOUTUBE_SEARCH_RETRY_INTERVAL_MS)
+                return
+            }
+
+            webView.evaluateJavascript(FIRST_YOUTUBE_VIDEO_RESULT_SCRIPT) { result ->
+                if (isDestroyed || pendingYoutubeSearchRequestId != requestId) return@evaluateJavascript
+
+                val candidateUrl = runCatching {
+                    JSONTokener(result ?: "null").nextValue() as? String
+                }.getOrNull()
+                val videoId = candidateUrl?.let(::youtubeVideoIdFromWatchUrl)
+                if (videoId != null) {
+                    pendingYoutubeSearchRequestId = null
+                    pendingYoutubeSearchTerms = null
+                    val watchUrl = youtubeWatchUrl(videoId)
+                    webView.loadUrl(watchUrl)
+                    scheduleYoutubeAutoplay(videoId)
+                } else {
+                    handler.postDelayed(this, YOUTUBE_SEARCH_RETRY_INTERVAL_MS)
+                }
+            }
+        }
+    }
+
+    private val youtubeAutoplayAttempt = object : Runnable {
+        override fun run() {
+            val videoId = pendingYoutubeAutoplayVideoId ?: return
+            val webView = getWebView()
+            if (isDestroyed || webView == null) {
+                pendingYoutubeAutoplayVideoId = null
+                return
+            }
+
+            val currentVideoId = youtubeVideoIdFromWatchUrl(webView.url.orEmpty())
+            if (currentVideoId != videoId) {
+                val currentUri = Uri.parse(webView.url.orEmpty())
+                if (currentUri.path != "/results" && currentUri.path != "/watch") {
+                    pendingYoutubeAutoplayVideoId = null
+                    return
+                }
+                if (youtubeAutoplayAttempts < MAX_YOUTUBE_AUTOPLAY_ATTEMPTS) {
+                    youtubeAutoplayAttempts++
+                    handler.postDelayed(this, YOUTUBE_AUTOPLAY_RETRY_INTERVAL_MS)
+                } else {
+                    pendingYoutubeAutoplayVideoId = null
+                }
+                return
+            }
+
+            if (mediaState.isPlaying && mediaState.mediaId == videoId) {
+                pendingYoutubeAutoplayVideoId = null
+                return
+            }
+
+            if (youtubeAutoplayAttempts >= MAX_YOUTUBE_AUTOPLAY_ATTEMPTS) {
+                pendingYoutubeAutoplayVideoId = null
+                Log.w(TAG, "YouTube did not start playing after selecting the first search result")
+                return
+            }
+
+            youtubeAutoplayAttempts++
+            webView.evaluateJavascript(PLAY_SCRIPT, null)
+            handler.postDelayed(this, YOUTUBE_AUTOPLAY_RETRY_INTERVAL_MS)
+        }
+    }
 
     private val poll = object : Runnable {
         override fun run() {
@@ -96,6 +195,68 @@ internal class BrowserWebMediaController(
 
     internal fun playFromMediaSession() {
         execute(PLAY_SCRIPT)
+    }
+
+    internal fun searchYouTubeFromMediaSession(query: String?, extras: Bundle? = null) {
+        youtubeSearchRequestId++
+        pendingYoutubeSearchRequestId = null
+        pendingYoutubeSearchTerms = null
+        pendingYoutubeAutoplayVideoId = null
+        handler.removeCallbacks(youtubeSearchAttempt)
+        handler.removeCallbacks(youtubeAutoplayAttempt)
+
+        val searchTerms = resolveMediaSearchTerms(query, extras)
+            ?.trim()
+            ?.take(MAX_MEDIA_SEARCH_QUERY_LENGTH)
+        if (searchTerms.isNullOrBlank()) {
+            Log.w(TAG, "Ignoring empty YouTube media search query")
+            return
+        }
+
+        val webView = getWebView()
+        if (webView == null) {
+            Log.w(TAG, "Cannot search YouTube because there is no active WebView")
+            return
+        }
+
+        pendingYoutubeSearchRequestId = youtubeSearchRequestId
+        pendingYoutubeSearchTerms = searchTerms
+        youtubeSearchAttempts = 0
+        youtubeAutoplayAttempts = 0
+        isYouTubePlaylist = false
+        youtubeNextUrl = null
+        youtubePreviousUrl = null
+        val searchUrl = Uri.parse(YOUTUBE_SEARCH_URL)
+            .buildUpon()
+            .appendQueryParameter("search_query", searchTerms)
+            .appendQueryParameter("sp", YOUTUBE_VIDEO_FILTER)
+            .build()
+            .toString()
+        webView.loadUrl(searchUrl)
+        handler.postDelayed(youtubeSearchAttempt, YOUTUBE_SEARCH_RETRY_INTERVAL_MS)
+    }
+
+    private fun resolveMediaSearchTerms(query: String?, extras: Bundle?): String? {
+        val focusedTerms = when (extras?.getString(MediaStore.EXTRA_MEDIA_FOCUS)) {
+            MediaStore.Audio.Artists.ENTRY_CONTENT_TYPE ->
+                extras.getString(MediaStore.EXTRA_MEDIA_ARTIST)
+            MediaStore.Audio.Albums.ENTRY_CONTENT_TYPE ->
+                listOf(
+                    extras.getString(MediaStore.EXTRA_MEDIA_ALBUM),
+                    extras.getString(MediaStore.EXTRA_MEDIA_ARTIST)
+                ).filterNotNull().filter(String::isNotBlank).joinToString(" ")
+            MediaStore.Audio.Media.ENTRY_CONTENT_TYPE ->
+                listOf(
+                    extras.getString(MediaStore.EXTRA_MEDIA_TITLE),
+                    extras.getString(MediaStore.EXTRA_MEDIA_ARTIST)
+                ).filterNotNull().filter(String::isNotBlank).joinToString(" ")
+            MediaStore.Audio.Genres.ENTRY_CONTENT_TYPE ->
+                extras.getString(MediaStore.EXTRA_MEDIA_GENRE)
+            MediaStore.Audio.Playlists.ENTRY_CONTENT_TYPE ->
+                extras.getString(MediaStore.EXTRA_MEDIA_PLAYLIST)
+            else -> null
+        }
+        return focusedTerms?.takeIf(String::isNotBlank) ?: query
     }
 
     internal fun pauseFromMediaSession() {
@@ -174,15 +335,28 @@ internal class BrowserWebMediaController(
             Log.w(TAG, "Could not parse media monitor result", error)
             return
         }
+        unmuteMutedYouTubeOnStartup(webView, data)
         updateState(data)
     }
 
+    private fun unmuteMutedYouTubeOnStartup(webView: WebView, data: JSONObject) {
+        if (startupYouTubePlaybackChecked ||
+            !data.optBoolean("isYouTube") ||
+            !data.optBoolean("found") ||
+            !data.optBoolean("playing")
+        ) {
+            return
+        }
+
+        startupYouTubePlaybackChecked = true
+        webView.evaluateJavascript(UNMUTE_YOUTUBE_SCRIPT, null)
+    }
+
     private fun updateState(data: JSONObject?) {
-        val found = data?.optBoolean("found") == true
-        isYouTubePlaylist = found && data?.optBoolean("isPlaylist") == true
-        youtubeNextUrl = validatedYouTubePlaylistUrl(data?.optString("nextUrl"))
-        youtubePreviousUrl = validatedYouTubePlaylistUrl(data?.optString("previousUrl"))
-        if (!found) {
+        if (data == null || !data.optBoolean("found")) {
+            isYouTubePlaylist = false
+            youtubeNextUrl = null
+            youtubePreviousUrl = null
             artworkRequestId++
             artworkUrl = null
             artworkBitmap = null
@@ -192,26 +366,32 @@ internal class BrowserWebMediaController(
             return
         }
 
-        val mediaData = data ?: return
+        isYouTubePlaylist = data.optBoolean("isPlaylist")
+        youtubeNextUrl = validatedYouTubePlaylistUrl(data.optString("nextUrl"))
+        youtubePreviousUrl = validatedYouTubePlaylistUrl(data.optString("previousUrl"))
         val pageUrl = getWebView()?.url ?: getPageUrl()
         val fallbackTitle = getPageTitle().ifBlank { pageUrl }
         val newState = BrowserMediaState(
             isAvailable = true,
-            isPlaying = mediaData.optBoolean("playing"),
-            canSkipPrevious = mediaData.optBoolean("hasPrevious"),
-            canSkipNext = mediaData.optBoolean("hasNext"),
-            title = mediaData.optString("title").ifBlank { fallbackTitle },
-            artist = mediaData.optString("artist")
+            isPlaying = data.optBoolean("playing"),
+            canSkipPrevious = data.optBoolean("hasPrevious"),
+            canSkipNext = data.optBoolean("hasNext"),
+            title = data.optString("title").ifBlank { fallbackTitle },
+            artist = data.optString("artist")
                 .ifBlank { Uri.parse(pageUrl).host.orEmpty().ifBlank { applicationContext.packageName } },
-            album = mediaData.optString("album").ifBlank { Uri.parse(pageUrl).host.orEmpty() },
-            mediaId = mediaData.optString("mediaId").ifBlank { pageUrl },
-            mediaUri = mediaData.optString("mediaUri").ifBlank { pageUrl },
-            artworkUrl = mediaData.optString("artwork").takeIf(::isSupportedArtworkUrl),
-            positionMs = (mediaData.optDouble("position", 0.0) * 1_000.0).toLong().coerceAtLeast(0L),
-            durationMs = (mediaData.optDouble("duration", 0.0) * 1_000.0).toLong().coerceAtLeast(0L),
-            canSeek = mediaData.optBoolean("canSeek")
+            album = data.optString("album").ifBlank { Uri.parse(pageUrl).host.orEmpty() },
+            mediaId = data.optString("mediaId").ifBlank { pageUrl },
+            mediaUri = data.optString("mediaUri").ifBlank { pageUrl },
+            artworkUrl = data.optString("artwork").takeIf(::isSupportedArtworkUrl),
+            positionMs = (data.optDouble("position", 0.0) * 1_000.0).toLong().coerceAtLeast(0L),
+            durationMs = (data.optDouble("duration", 0.0) * 1_000.0).toLong().coerceAtLeast(0L),
+            canSeek = data.optBoolean("canSeek")
         )
         publishState(newState)
+        if (newState.isPlaying && newState.mediaId == pendingYoutubeAutoplayVideoId) {
+            pendingYoutubeAutoplayVideoId = null
+            handler.removeCallbacks(youtubeAutoplayAttempt)
+        }
 
         val metadataKey = listOf(
             newState.mediaId,
@@ -279,7 +459,8 @@ internal class BrowserWebMediaController(
             PlaybackStateCompat.ACTION_PAUSE or
             PlaybackStateCompat.ACTION_PLAY_PAUSE or
             PlaybackStateCompat.ACTION_STOP or
-            PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID
+            PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID or
+            PlaybackStateCompat.ACTION_PLAY_FROM_SEARCH
         if (state.canSkipPrevious) actions = actions or PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
         if (state.canSkipNext) actions = actions or PlaybackStateCompat.ACTION_SKIP_TO_NEXT
         if (state.canSeek) {
@@ -372,6 +553,27 @@ internal class BrowserWebMediaController(
         host.equals("youtube.com", ignoreCase = true) ||
             host.endsWith(".youtube.com", ignoreCase = true)
 
+    private fun youtubeVideoIdFromWatchUrl(candidate: String): String? {
+        val uri = Uri.parse(candidate)
+        if (uri.scheme != "https" || !isYouTubeHost(uri.host.orEmpty()) || uri.path != "/watch") return null
+        return uri.getQueryParameter("v")
+            ?.takeIf { YOUTUBE_VIDEO_ID_REGEX.matches(it) }
+    }
+
+    private fun youtubeWatchUrl(videoId: String): String =
+        Uri.parse(YOUTUBE_WATCH_URL)
+            .buildUpon()
+            .appendQueryParameter("v", videoId)
+            .build()
+            .toString()
+
+    private fun scheduleYoutubeAutoplay(videoId: String) {
+        pendingYoutubeAutoplayVideoId = videoId
+        youtubeAutoplayAttempts = 0
+        handler.removeCallbacks(youtubeAutoplayAttempt)
+        handler.postDelayed(youtubeAutoplayAttempt, YOUTUBE_AUTOPLAY_RETRY_INTERVAL_MS)
+    }
+
     private fun isSupportedArtworkUrl(candidate: String): Boolean {
         val uri = Uri.parse(candidate)
         return uri.scheme == "https" && !uri.host.isNullOrBlank()
@@ -421,6 +623,49 @@ internal class BrowserWebMediaController(
         const val MAX_ARTWORK_BYTES = 5 * 1024 * 1024
         const val MAX_ARTWORK_DIMENSION = 512
         const val APP_ICON_SIZE_PX = 256
+        const val MAX_MEDIA_SEARCH_QUERY_LENGTH = 200
+        const val MAX_YOUTUBE_SEARCH_ATTEMPTS = 15
+        const val MAX_YOUTUBE_AUTOPLAY_ATTEMPTS = 20
+        const val YOUTUBE_SEARCH_RETRY_INTERVAL_MS = 1_000L
+        const val YOUTUBE_AUTOPLAY_RETRY_INTERVAL_MS = 1_000L
+        const val YOUTUBE_SEARCH_URL = "https://www.youtube.com/results"
+        const val YOUTUBE_WATCH_URL = "https://www.youtube.com/watch"
+        const val YOUTUBE_VIDEO_FILTER = "EgIQAQ=="
+        val YOUTUBE_VIDEO_ID_REGEX = Regex("[A-Za-z0-9_-]{11}")
+        val FIRST_YOUTUBE_VIDEO_RESULT_SCRIPT = """
+            (function() {
+              const selectors = [
+                "ytd-video-renderer a#video-title[href*='/watch?v=']",
+                "ytd-rich-item-renderer a#video-title[href*='/watch?v=']",
+                "ytm-video-with-context-renderer a[href*='/watch?v=']",
+                "ytm-compact-video-renderer a[href*='/watch?v=']",
+                "ytm-video-renderer a[href*='/watch?v=']",
+                "a[href^='/watch?v=']"
+              ];
+              const anchors = document.querySelectorAll(selectors.join(","));
+              const adSelector = [
+                "ytd-ad-slot-renderer",
+                "ytd-promoted-sparkles-web-renderer",
+                "ytm-promoted-sparkles-web-renderer",
+                "[data-ad-preview]"
+              ].join(",");
+              for (const anchor of anchors) {
+                if (anchor.closest(adSelector)) continue;
+                let url;
+                try {
+                  url = new URL(anchor.href, location.href);
+                } catch (_) {
+                  continue;
+                }
+                if (url.pathname !== "/watch") continue;
+                const videoId = url.searchParams.get("v");
+                if (videoId && /^[A-Za-z0-9_-]{11}$/.test(videoId)) {
+                  return "https://www.youtube.com/watch?v=" + encodeURIComponent(videoId);
+                }
+              }
+              return null;
+            })()
+        """.trimIndent()
         val MONITOR_SCRIPT = """
             (function() {
               const key = "__aaBrowserMotionMedia";
@@ -445,6 +690,7 @@ internal class BrowserWebMediaController(
               const metadata = navigator.mediaSession && navigator.mediaSession.metadata;
               const youtubePlayer = document.getElementById("movie_player") ||
                 document.querySelector(".html5-video-player");
+              const isYouTube = /(^|\.)youtube\.com$/i.test(location.hostname);
               let youtubeVideoData = null;
               let youtubePlayerState = -1;
               try {
@@ -520,6 +766,7 @@ internal class BrowserWebMediaController(
                 !!button && !button.disabled && button.getAttribute("aria-disabled") !== "true";
               return JSON.stringify({
                 found: players.length > 0 || !!youtubeVideoId,
+                isYouTube: isYouTube,
                 playing: !!active || youtubePlayerState === 1,
                 title: title,
                 artist: artist,
@@ -552,6 +799,27 @@ internal class BrowserWebMediaController(
               const media = Array.from(document.querySelectorAll("video,audio"))
                 .find(item => !item.error && !item.ended);
               if (media && media.paused) media.play().catch(() => {});
+            })();
+        """.trimIndent()
+
+        val UNMUTE_YOUTUBE_SCRIPT = """
+            (function() {
+              const player = document.getElementById("movie_player") ||
+                document.querySelector(".html5-video-player");
+              if (player && typeof player.unMute === "function") {
+                player.unMute();
+                if (typeof player.getVolume === "function" &&
+                    typeof player.setVolume === "function" &&
+                    player.getVolume() === 0) {
+                  player.setVolume(100);
+                }
+                return;
+              }
+              const media = document.querySelector("video");
+              if (media) {
+                media.muted = false;
+                if (media.volume === 0) media.volume = 1;
+              }
             })();
         """.trimIndent()
 

@@ -12,8 +12,6 @@
     <uses-permission android:name="androidx.car.app.ACCESS_SURFACE" />
     <uses-permission android:name="androidx.car.app.MAP_TEMPLATES" />
     <uses-permission android:name="androidx.car.app.NAVIGATION_TEMPLATES" />
-    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
     <uses-feature
@@ -67,6 +65,14 @@
                 <data android:scheme="http" />
                 <data android:scheme="https" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
 
         <service
@@ -85,7 +91,7 @@
         </service>
         <service
             android:name=".car.FullscreenCarService"
-            android:icon="@mipmap/ic_launcher"
+            android:icon="@drawable/ic_fullscreen_browser"
             android:exported="true"
             android:foregroundServiceType="mediaPlayback"
             android:label="@string/full_screen_app_name"

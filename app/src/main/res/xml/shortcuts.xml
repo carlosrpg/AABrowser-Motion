@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <capability android:name="actions.intent.PLAY_MEDIA">
+        <intent
+            android:action="android.media.action.MEDIA_PLAY_FROM_SEARCH"
+            android:targetPackage="com.carlosrpg.aabrowser"
+            android:targetClass="com.kododake.aabrowser.MainActivity">
+            <parameter
+                android:name="media.@type"
+                android:required="true"
+                android:value="MusicGroup" />
+            <parameter
+                android:name="media.name"
+                android:key="android.intent.extra.artist" />
+            <parameter
+                android:name="media.name"
+                android:key="query" />
+            <extra
+                android:name="android.intent.extra.focus"
+                android:value="vnd.android.cursor.item/artist" />
+        </intent>
+
+        <intent
+            android:action="android.media.action.MEDIA_PLAY_FROM_SEARCH"
+            android:targetPackage="com.carlosrpg.aabrowser"
+            android:targetClass="com.kododake.aabrowser.MainActivity">
+            <parameter
+                android:name="media.@type"
+                android:required="true"
+                android:value="MusicAlbum" />
+            <parameter
+                android:name="media.name"
+                android:key="android.intent.extra.album" />
+            <parameter
+                android:name="media.byArtist.name"
+                android:key="android.intent.extra.artist" />
+            <parameter
+                android:name="media.name"
+                android:key="query" />
+            <extra
+                android:name="android.intent.extra.focus"
+                android:value="vnd.android.cursor.item/album" />
+        </intent>
+
+        <intent
+            android:action="android.media.action.MEDIA_PLAY_FROM_SEARCH"
+            android:targetPackage="com.carlosrpg.aabrowser"
+            android:targetClass="com.kododake.aabrowser.MainActivity">
+            <parameter
+                android:name="media.@type"
+                android:required="true"
+                android:value="MusicRecording" />
+            <parameter
+                android:name="media.name"
+                android:key="android.intent.extra.title" />
+            <parameter
+                android:name="media.byArtist.name"
+                android:key="android.intent.extra.artist" />
+            <parameter
+                android:name="media.name"
+                android:key="query" />
+            <extra
+                android:name="android.intent.extra.focus"
+                android:value="vnd.android.cursor.item/audio" />
+        </intent>
+
+        <intent
+            android:action="android.media.action.MEDIA_PLAY_FROM_SEARCH"
+            android:targetPackage="com.carlosrpg.aabrowser"
+            android:targetClass="com.kododake.aabrowser.MainActivity">
+            <parameter
+                android:name="media.@type"
+                android:required="true"
+                android:value="MusicPlaylist" />
+            <parameter
+                android:name="media.name"
+                android:key="android.intent.extra.playlist" />
+            <parameter
+                android:name="media.name"
+                android:key="query" />
+            <extra
+                android:name="android.intent.extra.focus"
+                android:value="vnd.android.cursor.item/playlist" />
+        </intent>
+
+        <intent
+            android:action="android.media.action.MEDIA_PLAY_FROM_SEARCH"
+            android:targetPackage="com.carlosrpg.aabrowser"
+            android:targetClass="com.kododake.aabrowser.MainActivity">
+            <parameter
+                android:name="media.name"
+                android:key="query" />
+        </intent>
+    </capability>
+</shortcuts>

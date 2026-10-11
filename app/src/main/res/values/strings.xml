@@ -1,13 +1,13 @@
 <resources>
-    <string name="app_name">AA Browser Motion</string>
-    <string name="app_credit">AA Browser Motion — by carlosrpg</string>
+    <string name="app_name">Motion</string>
+    <string name="app_credit">Motion — by carlosrpg</string>
     <string name="author_name">carlosrpg</string>
-    <string name="menu_title">AA Browser Motion</string>
+    <string name="menu_title">Motion Browser</string>
     <string name="menu_close">Close</string>
     <string name="menu_address_label">Address or search</string>
-    <string name="car_browser_action_label">AA Browser</string>
-    <string name="split_screen_app_name">Split - AA Browser Motion</string>
-    <string name="full_screen_app_name">Full - AA Browser Motion</string>
+    <string name="car_browser_action_label">Motion</string>
+    <string name="split_screen_app_name">Split Motion</string>
+    <string name="full_screen_app_name">Full Motion</string>
     
     <string name="secure_connection">Secure connection</string>
     <string name="insecure_connection">Insecure connection</string>
@@ -183,7 +183,7 @@
 
     
     <string name="settings_license">License</string>
-    <string name="settings_license_description">AA Browser Motion is a GPLv3 fork maintained at https://github.com/carlosrpg/AABrowser-Motion.\nOriginal AA Browser source and attribution: https://github.com/kododake/AABrowser.</string>
+    <string name="settings_license_description">Motion is a GPLv3 fork maintained at https://github.com/carlosrpg/AABrowser-Motion.\nOriginal AA Browser source and attribution: https://github.com/kododake/AABrowser.</string>
     
     <string name="open_source_view_licenses">View open-source licenses</string>
     <string name="open_source_licenses_title">Open-source Licenses</string>
@@ -193,7 +193,7 @@
     <string name="menu_start_page_add_current">Add current page to start page</string>
     <string name="menu_home_page_set_current">Set current page as home page</string>
     <string name="start_page_title">Start Page</string>
-    <string name="start_page_headline">AA Browser Motion</string>
+    <string name="start_page_headline">Motion</string>
     <string name="start_page_subtitle">Quick access for the sites you use most.</string>
     <string name="start_page_card_title">Quick Links</string>
     <string name="start_page_quick_links_hint">Press and hold a tile to drag and reorder. Tap to open or configure.</string>
@@ -234,7 +234,7 @@
     <string name="location_upgrade_btn_precise">Upgrade to precise</string>
     <string name="location_upgrade_btn_approximate">Keep approximate</string>
     <string name="ssl_error_title">Security Warning</string>
-    <string name="ssl_error_message">AA Browser Motion detected a problem with the security certificate of this website (%1$s).\n\nThis connection is not secure, and someone might be trying to intercept your data.</string>
+    <string name="ssl_error_message">Motion detected a problem with the security certificate of this website (%1$s).\n\nThis connection is not secure, and someone might be trying to intercept your data.</string>
     <string name="ssl_error_reason_prefix">Reason:</string>
     <string name="ssl_error_expired">The certificate has expired.</string>
     <string name="ssl_error_idmismatch">The certificate hostname does not match the website address.</string>
@@ -249,7 +249,41 @@
     <string name="start_page_slot_empty_action">Tap to assign a bookmark</string>
     <string name="settings_open_fullscreen">Open in full screen</string>
     <string name="startup_safety_notice_title">Safety notice</string>
-    <string name="startup_safety_notice_message">AA Browser Motion is intended for development, testing, and use only while safely parked. Do not interact with this app while driving. The driver is responsible for following local laws and keeping attention on the road.</string>
+    <string name="startup_safety_notice_message">Motion is intended for development, testing, and use only while safely parked. Do not interact with this app while driving. The driver is responsible for following local laws and keeping attention on the road.</string>
     <string name="startup_safety_notice_continue">Continue</string>
     <string name="startup_safety_notice_dont_show_again">Don’t show again</string>
+    <string name="settings_dialog_select_page_zoom">Select Page Zoom</string>
+    <string name="settings_dialog_enter_custom_zoom">Enter Custom Zoom</string>
+    <string name="settings_dialog_custom_option">Custom...</string>
+    <string name="settings_dialog_home_page_url">Home Page URL</string>
+    <string name="settings_dialog_set_home_page">Set Home Page</string>
+    <string name="settings_dialog_clear">Clear</string>
+    <string name="settings_dialog_app_theme">App Theme</string>
+    <string name="settings_dialog_select_theme">Select Theme</string>
+    <string name="settings_dialog_select_quick_action_mode">Select Quick Action Mode</string>
+    <string name="settings_dialog_select_button_position">Select Button Position</string>
+    <string name="settings_dialog_select_user_agent">Select User Agent</string>
+    <string name="settings_start_page_quick_links">Quick Links</string>
+    <string name="settings_start_page_background_image">Background Image</string>
+    <string name="clipboard_url_copied">URL copied</string>
+    <string name="qr_code_accessibility">QR Code</string>
+    <string name="qr_code_generating">Generating...</string>
+    <string name="qr_code_copy_url">Copy URL</string>
+    <string name="bookmark_pin_start_page">Pin to Start Page</string>
+    <string name="bookmark_delete">Delete Bookmark</string>
+    <string name="address_bar_secure">Secure</string>
+    <string name="address_bar_not_secure">Not Secure</string>
+    <string name="action_options">Options</string>
+    <string name="keyboard_accent_content_description">Accent %1$s</string>
+    <string name="keyboard_current_field_text">Current field text</string>
+    <string name="keyboard_clear_field_text">Clear field text</string>
+    <string name="keyboard_backspace">Backspace</string>
+    <string name="keyboard_done">Done</string>
+    <string name="keyboard_search">Search</string>
+    <string name="keyboard_send">Send</string>
+    <string name="keyboard_next">Next</string>
+    <string name="keyboard_previous">Previous</string>
+    <string name="keyboard_go">Go</string>
+    <string name="sponsor_bmc_qr_accessibility">Buy Me a Coffee QR Code</string>
+    <string name="sponsor_github_qr_accessibility">GitHub Sponsors QR Code</string>
 </resources>

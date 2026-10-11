@@ -57,7 +57,7 @@ object HomePageSettingsSection {
             currentHomePage
         }
         val homePageRow = builder.createSettingRow(
-            title = "Home Page URL",
+            title = context.getString(R.string.settings_dialog_home_page_url),
             statusText = homePageStatusText,
             iconRes = R.drawable.home_24px
         ) {
@@ -73,10 +73,10 @@ object HomePageSettingsSection {
             inputLayout.addView(input)
 
             MaterialAlertDialogBuilder(context, com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
-                .setTitle("Set Home Page")
+                .setTitle(R.string.settings_dialog_set_home_page)
                 .setView(inputLayout)
                 .setNegativeButton(android.R.string.cancel, null)
-                .setNeutralButton("Clear") { _, _ ->
+                .setNeutralButton(R.string.settings_dialog_clear) { _, _ ->
                     BrowserPreferences.clearHomePageUrl(context)
                     callbacks.onHomePageChanged()
                     Toast.makeText(context, R.string.home_page_cleared, Toast.LENGTH_SHORT).show()

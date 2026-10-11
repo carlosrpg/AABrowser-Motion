@@ -94,6 +94,10 @@ internal object BrowserMediaSessionRegistry {
                         activeController?.playFromMediaSession()
                     }
                 }
+
+                override fun onPlayFromSearch(query: String?, extras: android.os.Bundle?) {
+                    activeController?.searchYouTubeFromMediaSession(query, extras)
+                }
             }, callbackHandler)
         }.also { mediaSession = it }
     }

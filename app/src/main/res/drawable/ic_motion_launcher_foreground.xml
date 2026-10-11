@@ -1,0 +1,8 @@
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:drawable="@drawable/ic_fullscreen_browser"
+        android:insetLeft="21dp"
+        android:insetTop="21dp"
+        android:insetRight="21dp"
+        android:insetBottom="21dp" />
+</layer-list>

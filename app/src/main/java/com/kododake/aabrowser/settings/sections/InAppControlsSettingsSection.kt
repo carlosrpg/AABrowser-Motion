@@ -64,7 +64,7 @@ object InAppControlsSettingsSection {
             )
             val selectedIndex = if (currentButtonMode == QuickActionButtonMode.ADDRESS_BAR) 1 else 0
             MaterialAlertDialogBuilder(context, com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
-                .setTitle("Select Quick Action Mode")
+                .setTitle(R.string.settings_dialog_select_quick_action_mode)
                 .setSingleChoiceItems(modes, selectedIndex) { dialog, which ->
                     dialog.dismiss()
                     val newMode = if (which == 1) QuickActionButtonMode.ADDRESS_BAR else QuickActionButtonMode.MENU
@@ -113,7 +113,7 @@ object InAppControlsSettingsSection {
                 QuickActionButtonPosition.TOP_RIGHT -> 3
             }
             MaterialAlertDialogBuilder(context, com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
-                .setTitle("Select Button Position")
+                .setTitle(R.string.settings_dialog_select_button_position)
                 .setSingleChoiceItems(positions, selectedIndex) { dialog, which ->
                     dialog.dismiss()
                     val newPos = when (which) {

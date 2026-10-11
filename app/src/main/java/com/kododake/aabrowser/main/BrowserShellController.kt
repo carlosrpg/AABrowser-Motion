@@ -17,10 +17,12 @@
 
 package com.kododake.aabrowser.main
 
+import android.app.SearchManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.net.Uri
+import android.provider.MediaStore
 import android.view.View
 import android.view.Window
 import android.webkit.CookieManager
@@ -117,12 +119,11 @@ class BrowserShellController(
     override var currentPageTitle: String = ""
         private set
 
-    var latestReleaseUrl: String = "https://github.com/kododake/AABrowser/releases"
+    var latestReleaseUrl: String = "https://github.com/carlosrpg/AABrowser-Motion/releases"
         private set
 
     fun initialize(intent: Intent?, shouldForceSessionRestore: Boolean) {
         BrowserPreferences.ensureGameBookmarkMigrated(context)
-        managers.umamiTracker.trackEvent("app_open")
 
         val setup = MainActivitySetup(
             context = context,
@@ -159,6 +160,7 @@ class BrowserShellController(
         managers.bookmarkManager.refreshBookmarks()
         managers.uiManager.applyQuickActionButtonPreferences()
         mediaController.startMonitoring()
+        handleMediaPlayFromSearchIntent(intent)
         managers.permissionManager.ensureNotificationPermissionIfNeeded(
             REQUEST_CODE_POST_NOTIFICATIONS
         )
@@ -173,21 +175,23 @@ class BrowserShellController(
                 onHideStartPage = ::hideStartPage,
                 onNavigationButtonsUpdateNeeded = ::updateNavigationButtons
             )
-            FreeDroidWarnHelper.checkAndShow(
-                hostActivity,
-                managers.themeManager.resolveThemeColor(
-                    R.attr.colorError
-                )
-            ) { url ->
-                managers.navigationManager.loadUrlFromIntent(url)
-            }
         }
     }
 
     fun onNewIntent(intent: Intent) {
+        if (handleMediaPlayFromSearchIntent(intent)) return
         managers.navigationManager.extractBrowsableUrl(intent)?.let {
             managers.navigationManager.loadUrlFromIntent(it)
         }
+    }
+
+    private fun handleMediaPlayFromSearchIntent(intent: Intent?): Boolean {
+        if (intent?.action != MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH) return false
+        mediaController.searchYouTubeFromMediaSession(
+            query = intent.getStringExtra(SearchManager.QUERY),
+            extras = intent.extras
+        )
+        return true
     }
 
     fun onResume() {

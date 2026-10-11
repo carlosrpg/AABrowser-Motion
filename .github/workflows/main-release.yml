@@ -20,7 +20,7 @@ jobs:
   build-release:
     runs-on: ubuntu-latest
     env:
-      RELEASE_STORE_FILE: /tmp/aabrowser-motion-release.keystore
+      RELEASE_STORE_FILE: /tmp/motion-release.keystore
       RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
       RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
       RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
@@ -69,7 +69,7 @@ jobs:
             -keyalg RSA \
             -keysize 2048 \
             -validity 1 \
-            -dname "CN=CI Validation, O=AA Browser Motion"
+            -dname "CN=CI Validation, O=Motion"
           {
             echo "RELEASE_STORE_PASSWORD=ci-validation"
             echo "RELEASE_KEY_ALIAS=ci-validation"
@@ -92,7 +92,7 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AA-Browser-Motion-main-${{ github.run_number }}
+          name: Motion-main-${{ github.run_number }}
           path: app/build/renamedApks/release/*.apk
           if-no-files-found: error
 
@@ -105,6 +105,6 @@ jobs:
           gh release create "$RELEASE_TAG"
           app/build/renamedApks/release/*.apk
           --target "$GITHUB_SHA"
-          --title "AA Browser Motion main build #${{ github.run_number }}"
+          --title "Motion main build #${{ github.run_number }}"
           --notes "Automated signed release APK from main at commit $GITHUB_SHA."
           --prerelease

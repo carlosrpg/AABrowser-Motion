@@ -103,7 +103,7 @@ fun QrCodeDialog(
                     ) {
                         Image(
                             bitmap = qrBitmap.asImageBitmap(),
-                            contentDescription = "QR Code",
+                            contentDescription = stringResource(R.string.qr_code_accessibility),
                             modifier = Modifier.size(qrImageSize)
                         )
                     }
@@ -113,7 +113,7 @@ fun QrCodeDialog(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Generating...",
+                            text = stringResource(R.string.qr_code_generating),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
