@@ -19,7 +19,9 @@ package com.kododake.aabrowser.ui.controllers
 
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import com.kododake.aabrowser.model.BrowserMediaState
 import com.kododake.aabrowser.ui.compose.screens.menu.BrowserMenuFab
+import com.kododake.aabrowser.ui.compose.screens.menu.BrowserMediaControls
 import com.kododake.aabrowser.ui.compose.screens.menu.BrowserMenuSheet
 import com.kododake.aabrowser.ui.compose.screens.menu.MenuActions
 import com.kododake.aabrowser.ui.compose.screens.menu.MenuStateHolder
@@ -42,7 +44,10 @@ class MenuSetupHelper {
         }
     }
 
-    fun setupFab(composeView: ComposeView, onClick: () -> Unit) {
+    fun setupFab(
+        composeView: ComposeView,
+        onClick: () -> Unit,
+    ) {
         composeView.apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
@@ -54,9 +59,29 @@ class MenuSetupHelper {
         }
     }
 
+    fun setupMediaControls(
+        composeView: ComposeView,
+        onPrevious: () -> Unit,
+        onPlayPause: () -> Unit,
+        onNext: () -> Unit
+    ) {
+        composeView.apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                BrowserMediaControls(
+                    stateHolder = stateHolder,
+                    onPrevious = onPrevious,
+                    onPlayPause = onPlayPause,
+                    onNext = onNext
+                )
+            }
+        }
+    }
+
     fun showFab() { stateHolder.isFabVisible = true }
     fun hideFab() { stateHolder.isFabVisible = false }
     fun setFabMode(addressBarMode: Boolean) { stateHolder.fabIsAddressBarMode = addressBarMode }
+    fun updateMediaState(state: BrowserMediaState) { stateHolder.mediaState = state }
 
     fun updateNavigation(
         canBack: Boolean,

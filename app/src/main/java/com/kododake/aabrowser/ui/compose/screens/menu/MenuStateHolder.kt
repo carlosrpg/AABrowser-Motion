@@ -21,6 +21,7 @@ import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.kododake.aabrowser.model.BrowserMediaState
 
 /**
  * Observable UI state holder for the Compose browser menu sheet.
@@ -39,6 +40,7 @@ class MenuStateHolder {
     var isReturningFromSubscreen by mutableStateOf(false)
     var isFabVisible by mutableStateOf(false)
     var fabIsAddressBarMode by mutableStateOf(false)
+    var mediaState by mutableStateOf(BrowserMediaState.None)
 
     fun updateNavigationState(
         canBack: Boolean,

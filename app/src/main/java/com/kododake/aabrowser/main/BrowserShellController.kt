@@ -36,6 +36,7 @@ import com.kododake.aabrowser.tabs.BrowserTab
 import com.kododake.aabrowser.ui.MainActivitySetup
 import com.kododake.aabrowser.ui.controllers.NavigationButtonUpdater
 import com.kododake.aabrowser.ui.controllers.ProgressIndicatorController
+import com.kododake.aabrowser.web.BrowserWebMediaController
 import kotlinx.coroutines.CoroutineScope
 
 class BrowserShellController(
@@ -87,6 +88,16 @@ class BrowserShellController(
         onNavigationButtonsUpdateNeeded = ::updateNavigationButtons
     )
 
+    private val mediaController = BrowserWebMediaController(
+        context = context,
+        getWebView = { managers.tabManager.activeTab?.webView },
+        getPageTitle = { currentPageTitle },
+        getPageUrl = { currentUrl },
+        onStateChanged = { state ->
+            managers.uiManager.menuHelper.updateMediaState(state)
+        }
+    )
+
     private val menuFabController = MenuFabController(
         context = context,
         binding = binding,
@@ -130,7 +141,10 @@ class BrowserShellController(
                         BrowserPreferences.getUserAgentProfile(context)
                     )
                 },
-                onAddressInputFocusChanged = hostContext::onAddressInputFocusChanged
+                onAddressInputFocusChanged = hostContext::onAddressInputFocusChanged,
+                onMediaPrevious = mediaController::skipPrevious,
+                onMediaPlayPause = mediaController::togglePlayback,
+                onMediaNext = mediaController::skipNext
             )
         )
         setup.initializeUi(
@@ -144,6 +158,7 @@ class BrowserShellController(
         menuFabController.showMenuButtonTemporarily()
         managers.bookmarkManager.refreshBookmarks()
         managers.uiManager.applyQuickActionButtonPreferences()
+        mediaController.startMonitoring()
         managers.permissionManager.ensureNotificationPermissionIfNeeded(
             REQUEST_CODE_POST_NOTIFICATIONS
         )
@@ -177,6 +192,7 @@ class BrowserShellController(
 
     fun onResume() {
         webView?.onResume()
+        mediaController.startMonitoring()
         managers.themeManager.applyMenuHeaderColors()
         managers.bookmarkManager.refreshBookmarks()
         managers.tabManager.refreshTabs()
@@ -196,6 +212,7 @@ class BrowserShellController(
     }
 
     fun onDestroy() {
+        mediaController.destroy()
         menuFabController.cleanup()
         managers.uiManager.exitFullscreen()
         managers.startPageManager.onDestroy()

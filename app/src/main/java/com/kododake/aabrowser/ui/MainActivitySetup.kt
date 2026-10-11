@@ -76,7 +76,10 @@ class MainActivitySetup(
         val handleQuickActionButtonPressed: () -> Unit,
         val showStartPage: () -> Unit,
         val onDesktopModeChanged: (Boolean) -> Unit,
-        val onAddressInputFocusChanged: (Boolean) -> Unit = {}
+        val onAddressInputFocusChanged: (Boolean) -> Unit = {},
+        val onMediaPrevious: () -> Unit = {},
+        val onMediaPlayPause: () -> Unit = {},
+        val onMediaNext: () -> Unit = {}
     )
 
     fun initializeUi(
@@ -171,9 +174,16 @@ class MainActivitySetup(
             }
         )
         managers.uiManager.menuHelper.setup(binding.menuComposeView, menuActions)
-        managers.uiManager.menuHelper.setupFab(binding.fabComposeView) {
-            actions.handleQuickActionButtonPressed()
-        }
+        managers.uiManager.menuHelper.setupFab(
+            composeView = binding.fabComposeView,
+            onClick = actions.handleQuickActionButtonPressed
+        )
+        managers.uiManager.menuHelper.setupMediaControls(
+            composeView = binding.mediaControlsComposeView,
+            onPrevious = actions.onMediaPrevious,
+            onPlayPause = actions.onMediaPlayPause,
+            onNext = actions.onMediaNext
+        )
         managers.uiManager.menuHelper.updateVersion("v${com.kododake.aabrowser.BuildConfig.VERSION_NAME}")
         val isFullscreen = BrowserPreferences.shouldUseFullscreenMode(context)
         managers.uiManager.menuHelper.stateHolder.isFullscreenMode = isFullscreen
