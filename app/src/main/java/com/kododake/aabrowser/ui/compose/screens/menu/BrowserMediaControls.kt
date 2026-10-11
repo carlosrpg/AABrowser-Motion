@@ -24,6 +24,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -55,52 +56,63 @@ fun BrowserMediaControls(
 ) {
     AABrowserTheme {
         AnimatedVisibility(
-            visible = stateHolder.mediaState.isAvailable,
+            visible = stateHolder.mediaState.isAvailable && stateHolder.isFabVisible,
             enter = scaleIn(tween(180)) + fadeIn(tween(180)),
             exit = scaleOut(tween(120)) + fadeOut(tween(120)),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 16.dp)
+                .padding(start = 16.dp, end = 16.dp, bottom = 6.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Surface(
-                    shape = RoundedCornerShape(18.dp),
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    tonalElevation = 2.dp
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (stateHolder.mediaState.canSkipPrevious) {
-                            MediaControlButton(
-                                icon = Icons.Rounded.SkipPrevious,
-                                description = stringResource(R.string.media_previous),
-                                onClick = onPrevious
-                            )
-                        }
-                        MediaControlButton(
-                            icon = if (stateHolder.mediaState.isPlaying) {
-                                Icons.Rounded.Pause
-                            } else {
-                                Icons.Rounded.PlayArrow
-                            },
-                            description = stringResource(
-                                if (stateHolder.mediaState.isPlaying) R.string.media_pause else R.string.media_play
-                            ),
-                            onClick = onPlayPause
-                        )
-                        if (stateHolder.mediaState.canSkipNext) {
-                            MediaControlButton(
-                                icon = Icons.Rounded.SkipNext,
-                                description = stringResource(R.string.media_next),
-                                onClick = onNext
-                            )
-                        }
-                    }
-                }
+                MediaControlSlot(
+                    visible = stateHolder.mediaState.canSkipPrevious,
+                    icon = Icons.Rounded.SkipPrevious,
+                    description = stringResource(R.string.media_previous),
+                    onClick = onPrevious
+                )
+                MediaControlButton(
+                    icon = if (stateHolder.mediaState.isPlaying) {
+                        Icons.Rounded.Pause
+                    } else {
+                        Icons.Rounded.PlayArrow
+                    },
+                    description = stringResource(
+                        if (stateHolder.mediaState.isPlaying) R.string.media_pause else R.string.media_play
+                    ),
+                    onClick = onPlayPause
+                )
+                MediaControlSlot(
+                    visible = stateHolder.mediaState.canSkipNext,
+                    icon = Icons.Rounded.SkipNext,
+                    description = stringResource(R.string.media_next),
+                    onClick = onNext
+                )
             }
+        }
+    }
+}
+
+@Composable
+private fun MediaControlSlot(
+    visible: Boolean,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    description: String,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier.size(64.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        if (visible) {
+            MediaControlButton(
+                icon = icon,
+                description = description,
+                onClick = onClick
+            )
         }
     }
 }
@@ -111,10 +123,21 @@ private fun MediaControlButton(
     description: String,
     onClick: () -> Unit
 ) {
-    IconButton(
-        onClick = onClick,
-        modifier = Modifier.size(48.dp)
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        tonalElevation = 2.dp
     ) {
-        Icon(icon, contentDescription = description)
+        IconButton(
+            onClick = onClick,
+            modifier = Modifier.size(64.dp)
+        ) {
+            Icon(
+                icon,
+                contentDescription = description,
+                modifier = Modifier.size(32.dp)
+            )
+        }
     }
 }

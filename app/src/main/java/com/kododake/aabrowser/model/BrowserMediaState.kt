@@ -21,7 +21,16 @@ data class BrowserMediaState(
     val isAvailable: Boolean = false,
     val isPlaying: Boolean = false,
     val canSkipPrevious: Boolean = false,
-    val canSkipNext: Boolean = false
+    val canSkipNext: Boolean = false,
+    val title: String = "",
+    val artist: String = "",
+    val album: String = "",
+    val mediaId: String = "",
+    val mediaUri: String = "",
+    val artworkUrl: String? = null,
+    val positionMs: Long = 0L,
+    val durationMs: Long = 0L,
+    val canSeek: Boolean = false
 ) {
     companion object {
         val None = BrowserMediaState()

@@ -89,7 +89,9 @@ class BrowserShellController(
     )
 
     private val mediaController = BrowserWebMediaController(
+        context = context,
         getWebView = { managers.tabManager.activeTab?.webView },
+        getPageTitle = { currentPageTitle },
         getPageUrl = { currentUrl },
         onStateChanged = { state ->
             managers.uiManager.menuHelper.updateMediaState(state)

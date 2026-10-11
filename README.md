@@ -11,6 +11,10 @@ This repository is a fork of [kododake/AABrowser](https://github.com/kododake/AA
 
 - Two Android Auto car modes: split-screen and fullscreen
 
+> [!Important]
+> Android Auto reserves the majority of the screen for Navigation,
+> This App uses two services, one intended for split-screen mode and the other for fullscreen mode. The 
+
 ## Requirements
 
 - Android 15/API 35 or newer
