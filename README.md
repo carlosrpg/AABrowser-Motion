@@ -5,15 +5,20 @@ AA Browser Motion is an Android 15+ WebView browser for Android Auto head units,
 This repository is a fork of [kododake/AABrowser](https://github.com/kododake/AABrowser). The original project and its contributors remain the source of the core browser implementation; fork-specific changes are maintained in this repository under GPLv3.
 
 > [!WARNING]
-> AA Browser Motion is intended for development, testing, and use only while safely parked. Do not interact with the app while driving. Follow local laws and keep your attention on the road.
+> AA Browser Motion is intended for development, testing, and use only while safely parked. Do not interact with the app while driving.
+> Follow local laws and keep your attention on the road.
+> I'm not responsible for your bad choices!
+> This app is not available on the app store to avoid non-technical folks from installing
+> without the proper understanding that this is NOT intended to be used while driving
 
 ## New Features
 
 - Two Android Auto car modes: split-screen and fullscreen
+- Media control on the app and on Android Auto head units. (Initially limited to Youtube, with plans to support more media sources from other common streaming apps)
 
 > [!Important]
 > Android Auto reserves the majority of the screen for Navigation,
-> This App uses two services, one intended for split-screen mode and the other for fullscreen mode. The 
+> This App uses two services, one intended for split-screen mode and the other for fullscreen mode. The fullscreen service takes over the entire screen when activated, but it uses a Virtual Display to manage its content, causing it to be extremely resource-intensive and affecting the performance considerably.
 
 ## Requirements
 
