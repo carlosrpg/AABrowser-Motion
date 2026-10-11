@@ -93,7 +93,7 @@ class OverlayManager(
             onCopyUrl = {
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
                 clipboard?.setPrimaryClip(ClipData.newPlainText("URL", qrUrlState.value))
-                Toast.makeText(context, "URL copied", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, R.string.clipboard_url_copied, Toast.LENGTH_SHORT).show()
             },
             onShareExternal = {
                 val url = qrUrlState.value

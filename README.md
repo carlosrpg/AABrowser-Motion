@@ -1,24 +1,24 @@
-# AA Browser Motion
+# Motion
 
-AA Browser Motion is an Android 15+ WebView browser for Android Auto head units, maintained by [carlosrpg](https://github.com/carlosrpg).
+Motion is an Android 15+ WebView browser for Android Auto projection, maintained by [carlosrpg](https://github.com/carlosrpg).
 
 This repository is a fork of [kododake/AABrowser](https://github.com/kododake/AABrowser). The original project and its contributors remain the source of the core browser implementation; fork-specific changes are maintained in this repository under GPLv3.
 
 > [!WARNING]
-> AA Browser Motion is intended for development, testing, and use only while safely parked. Do not interact with the app while driving.
+> Motion is intended for development, testing, and use only while safely parked. Do not interact with the app while driving.
 > Follow local laws and keep your attention on the road.
 > I'm not responsible for your bad choices!
-> This app is not available on the app store to avoid non-technical folks from installing
-> without the proper understanding that this is NOT intended to be used while driving
 
 ## New Features
 
 - Two Android Auto car modes: split-screen and fullscreen
-- Media control on the app and on Android Auto head units. (Initially limited to Youtube, with plans to support more media sources from other common streaming apps)
+- YouTube media controls and voice search on the phone and Android Auto head units
 
 > [!Important]
 > Android Auto reserves the majority of the screen for Navigation,
 > This App uses two services, one intended for split-screen mode and the other for fullscreen mode. The fullscreen service takes over the entire screen when activated, but it uses a Virtual Display to manage its content, causing it to be extremely resource-intensive and affecting the performance considerably.
+
+Phone voice search is declared as the `actions.intent.PLAY_MEDIA` App Action in `app/src/main/res/xml/shortcuts.xml` and handled through Android's `MEDIA_PLAY_FROM_SEARCH` intent. App Actions are registered with Google through Play Console, not by sideloading alone. In Play Console, accept the App Actions terms under **Advanced settings > App Actions**, upload the bundle to an internal or closed test track, and install it from that track. Only reviewed actions are available to test-track users by default; to test an unreviewed action, join Google's [App Actions Development Program](https://groups.google.com/g/app-actions-development-program) with the test account. Access can take up to three hours. App Actions review is separate from the Android app review. The Google Assistant plugin previously used to create local previews has been removed from the JetBrains Marketplace. Gemini does not currently invoke this App Action for custom media apps.
 
 ## Requirements
 
@@ -47,6 +47,14 @@ Optional flags:
 ```powershell
 .\scripts\build-phone-apk.ps1 -Clean -RunTests
 ```
+
+Build the signed Android App Bundle for Google Play with:
+
+```powershell
+.\gradlew.bat app:bundleRelease
+```
+
+The bundle is written to `app\build\outputs\bundle\release\app-release.aab` and uses the same stable release signing configuration. Google Play App Signing should be enabled when creating the Play listing; retain the upload key and its credentials for future updates.
 
 Generate the ignored release key once before the first build:
 
@@ -89,4 +97,4 @@ Download published builds from [GitHub Releases](https://github.com/carlosrpg/AA
 
 ## License
 
-AA Browser Motion is licensed under the [GNU General Public License v3.0](LICENSE). Preserve upstream copyright and attribution notices when redistributing modified versions.
+Motion is licensed under the [GNU General Public License v3.0](LICENSE). Preserve upstream copyright and attribution notices when redistributing modified versions.

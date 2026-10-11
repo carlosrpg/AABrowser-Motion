@@ -69,7 +69,7 @@ object StartPageSettingsSection {
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             }
             textCol.addView(TextView(context).apply {
-                text = "Quick Links"
+                text = context.getString(R.string.settings_start_page_quick_links)
                 setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_TitleSmall)
                 setTextColor(builder.onSurfaceColor)
                 typeface = Typeface.DEFAULT_BOLD
@@ -96,7 +96,7 @@ object StartPageSettingsSection {
         }
 
         inner.addView(TextView(context).apply {
-            text = "Background Image"
+            text = context.getString(R.string.settings_start_page_background_image)
             setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_TitleSmall)
             setTextColor(builder.onSurfaceColor)
             typeface = Typeface.DEFAULT_BOLD

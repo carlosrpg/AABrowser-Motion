@@ -1,4 +1,4 @@
-# Copilot instructions for AA Browser Motion
+# Copilot instructions for Motion
 
 ## Build, test, and lint
 
@@ -29,14 +29,14 @@ The current implementation targets standard Android first. The planned platform 
   `.\gradlew.bat app:connectedDebugAndroidTest`
 - Run one instrumentation test with:
   `.\gradlew.bat app:connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=com.kododake.aabrowser.ExampleInstrumentedTest#useAppContext"`
-- `app:assembleDebug` finalizes with `app:debugRenameApk`; the `AABrowser-Motion-<version>_debug.apk` file is written under `app/build/renamedApks/debug/`.
+- `app:assembleDebug` finalizes with `app:debugRenameApk`; the `Motion-<version>_debug.apk` file is written under `app/build/renamedApks/debug/`.
 - Release builds are currently unminified and use the `release` signing configuration. Signing values are resolved from Gradle properties, `local.properties`, or environment variables named `RELEASE_STORE_FILE`, `RELEASE_STORE_PASSWORD`, `RELEASE_KEY_ALIAS`, and `RELEASE_KEY_PASSWORD`.
 - There is no separate ktlint/detekt task; Android Lint is the repository's lint surface.
 - `app:lintDebug` currently reports pre-existing Android Auto manifest and experimental WebView API errors; do not assume a lint failure was introduced by the current change without checking the text report.
 
 ## Architecture
 
-- This is a single `:app` Android application forked from `kododake/AABrowser`. The package/application ID remains `com.kododake.aabrowser` for compatibility, while user-facing branding and release URLs use AA Browser Motion and `carlosrpg/AABrowser-Motion`. `MainActivity` is the lifecycle and callback host, while `BrowserManagers` lazily constructs the manager graph for tabs, navigation, bookmarks, the start page, permissions, theme, overlays, and UI.
+- This is a single `:app` Android application forked from `kododake/AABrowser`. The package/application ID remains `com.kododake.aabrowser` for compatibility, while user-facing branding is Motion and release URLs use `carlosrpg/AABrowser-Motion`. `MainActivity` is the lifecycle and callback host, while `BrowserManagers` lazily constructs the manager graph for tabs, navigation, bookmarks, the start page, permissions, theme, overlays, and UI.
 - Cross-manager dependencies are intentionally routed through `BrowserManagersProvider`, `MainActivityCallbackFactory`, `WebBrowserCallbackFactory`, and small callback interfaces/data classes. Preserve this pattern when adding behavior; directly constructing or retaining peer managers can reintroduce initialization cycles.
 - Each browser tab owns a real `WebView` and `SpeechRecognitionBridge`. `TabManager` controls the tab list and active tab, `BrowserTabFactory` creates configured tabs, and `ConfiguredWebView.kt` owns WebView settings and cleanup extensions. Tab close/destroy paths must release the speech bridge and call `WebView.releaseCompletely()`.
 - The main screen is a hybrid ViewBinding/Compose UI. `activity_main.xml` supplies the WebView/start-page containers and several `ComposeView` hosts; feature-specific `*Views`/`*ComposeHelper` objects install Compose content into those hosts. `SettingsActivity` is the exception and uses a full Compose content root.
@@ -48,7 +48,7 @@ The current implementation targets standard Android first. The planned platform 
 ## Repository conventions
 
 - Production Kotlin files under `app/src/main/java/com/kododake/aabrowser` use the repository GPLv3 header. Run `python scripts/add_license_header.py --dry-run` to check files or omit `--dry-run` to add missing headers.
-- Keep dependencies and plugin versions in `gradle/libs.versions.toml` and consume their aliases from Gradle scripts. The existing FreeDroidWarn JitPack dependency and Google OSS licenses buildscript plugin are exceptions.
+- Keep dependencies and plugin versions in `gradle/libs.versions.toml` and consume their aliases from Gradle scripts. The Google OSS licenses buildscript plugin is an exception.
 - Use `BrowserPreferences` rather than accessing `SharedPreferences` from feature or UI code. Preference readers sanitize stored values; URL persistence accepts only normalized HTTP(S) URLs through `UrlFormatter`.
 - Treat `BrowserTab` as an immutable snapshot: update URL, title, and active-state data with `copy` and replace the list entry. After tab changes, persist the session and refresh the Compose tab model where the existing flow does so.
 - UI actions cross layers through feature callback types such as `TabCallbacks`, `BrowserCallbacks`, `SettingsCallbacks`, and manager-specific callback interfaces. Extend the relevant callback contract and factory wiring instead of passing activities/managers deep into composables.

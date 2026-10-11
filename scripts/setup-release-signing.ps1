@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$KeyAlias = 'aabrowser-motion',
-    [string]$DistinguishedName = 'CN=carlosrpg, OU=AA Browser Motion, O=carlosrpg, C=BR',
+    [string]$DistinguishedName = 'CN=carlosrpg, OU=Motion, O=carlosrpg, C=BR',
     [int]$ValidityDays = 10000,
     [switch]$Force
 )

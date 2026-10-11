@@ -56,14 +56,14 @@ object DisplayScaleSettingsSection {
             iconRes = R.drawable.computer_24
         ) {
             val presetOptions = listOf(85, 100, 115, 130, 150)
-            val customText = "Custom..."
+            val customText = context.getString(R.string.settings_dialog_custom_option)
             val dialogOptions = presetOptions.map { context.getString(R.string.settings_scale_option, it) }.toMutableList()
             dialogOptions.add(customText)
 
             val selectedIndex = presetOptions.indexOf(currentScale).let { if (it >= 0) it else presetOptions.size }
 
             MaterialAlertDialogBuilder(context, com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
-                .setTitle("Select Page Zoom")
+                .setTitle(R.string.settings_dialog_select_page_zoom)
                 .setSingleChoiceItems(dialogOptions.toTypedArray(), selectedIndex) { dialog, which ->
                     dialog.dismiss()
                     if (which == presetOptions.size) {
@@ -83,7 +83,7 @@ object DisplayScaleSettingsSection {
                         inputLayout.addView(input)
 
                         MaterialAlertDialogBuilder(context, com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
-                            .setTitle("Enter Custom Zoom")
+                            .setTitle(R.string.settings_dialog_enter_custom_zoom)
                             .setView(inputLayout)
                             .setNegativeButton(android.R.string.cancel, null)
                             .setPositiveButton(android.R.string.ok) { _, _ ->

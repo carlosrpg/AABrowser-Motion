@@ -32,7 +32,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.kododake.aabrowser.R
 import com.kododake.aabrowser.ui.compose.components.ExpressiveLoadingIndicator
 
 @Composable
@@ -56,7 +58,7 @@ fun QrDisplayCard(
             if (qrBitmap != null) {
                 Image(
                     bitmap = qrBitmap.asImageBitmap(),
-                    contentDescription = "QR Code",
+                    contentDescription = stringResource(R.string.qr_code_accessibility),
                     modifier = Modifier.fillMaxSize()
                 )
             } else {

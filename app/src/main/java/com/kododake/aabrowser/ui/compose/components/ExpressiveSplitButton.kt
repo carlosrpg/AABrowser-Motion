@@ -48,8 +48,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.kododake.aabrowser.R
 import com.kododake.aabrowser.ui.compose.theme.ExpressiveMotion
 import com.kododake.aabrowser.ui.compose.theme.ExpressiveTypography
 
@@ -133,7 +135,7 @@ fun ExpressiveSplitButton(
             ) {
                 Icon(
                     Icons.Rounded.ArrowDropDown,
-                    contentDescription = "Options",
+                    contentDescription = stringResource(R.string.action_options),
                     modifier = Modifier.rotate(arrowRotation)
                 )
             }

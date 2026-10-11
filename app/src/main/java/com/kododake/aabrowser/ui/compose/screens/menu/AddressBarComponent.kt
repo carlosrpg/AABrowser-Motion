@@ -78,7 +78,9 @@ fun AddressBarComponent(
             // Security badge
             Icon(
                 imageVector = if (isSecure) Icons.Rounded.Lock else if (isInsecure) Icons.Rounded.LockOpen else Icons.Rounded.Lock,
-                contentDescription = if (isSecure) "Secure" else "Not Secure",
+                contentDescription = stringResource(
+                    if (isSecure) R.string.address_bar_secure else R.string.address_bar_not_secure
+                ),
                 tint = if (isSecure) MaterialTheme.colorScheme.primary else if (isInsecure) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(20.dp)
             )

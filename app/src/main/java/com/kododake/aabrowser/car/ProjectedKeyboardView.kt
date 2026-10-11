@@ -342,7 +342,7 @@ internal class ProjectedKeyboardView(
                 text = option
                 textSize = 24f
                 setTextColor(context.getColor(R.color.projected_keyboard_text))
-                contentDescription = "Accent $option"
+                contentDescription = context.getString(R.string.keyboard_accent_content_description, option)
                 isClickable = true
                 isFocusable = false
                 background = context.getDrawable(R.drawable.inline_keyboard_key)
@@ -401,7 +401,7 @@ internal class ProjectedKeyboardView(
             setTextColor(context.getColor(R.color.projected_keyboard_text))
             setHintTextColor(context.getColor(R.color.projected_keyboard_secondary))
             setPadding(dp(10), 0, dp(10), 0)
-            contentDescription = "Current field text"
+            contentDescription = context.getString(R.string.keyboard_current_field_text)
             isClickable = true
             setOnClickListener { }
             setOnTouchListener { _, event ->
@@ -474,7 +474,7 @@ internal class ProjectedKeyboardView(
             gravity = Gravity.CENTER
             background = context.getDrawable(R.drawable.inline_keyboard_key)
             setTextColor(context.getColor(R.color.projected_keyboard_secondary))
-            contentDescription = "Clear field text"
+            contentDescription = context.getString(R.string.keyboard_clear_field_text)
             isClickable = true
             isFocusable = false
             setOnClickListener {
@@ -492,7 +492,7 @@ internal class ProjectedKeyboardView(
             scaleType = android.widget.ImageView.ScaleType.CENTER_INSIDE
             setPadding(dp(10), dp(10), dp(10), dp(10))
             background = context.getDrawable(R.drawable.inline_keyboard_key)
-            contentDescription = "Backspace"
+            contentDescription = context.getString(R.string.keyboard_backspace)
             isFocusable = false
             setOnClickListener {
                 if (suppressNextBackspaceClick) return@setOnClickListener
@@ -539,7 +539,7 @@ internal class ProjectedKeyboardView(
             scaleType = android.widget.ImageView.ScaleType.CENTER_INSIDE
             setPadding(dp(8), dp(8), dp(8), dp(8))
             background = context.getDrawable(R.drawable.inline_keyboard_key)
-            contentDescription = "Done"
+            contentDescription = context.getString(R.string.keyboard_done)
             isFocusable = false
             setOnClickListener {
                 hideAccentPopup()
@@ -557,12 +557,12 @@ internal class ProjectedKeyboardView(
         editorInfo.actionLabel?.toString()?.takeIf(String::isNotBlank) ?: when (
             editorInfo.imeOptions and EditorInfo.IME_MASK_ACTION
         ) {
-            EditorInfo.IME_ACTION_GO -> "Go"
-            EditorInfo.IME_ACTION_SEARCH -> "Search"
-            EditorInfo.IME_ACTION_SEND -> "Send"
-            EditorInfo.IME_ACTION_NEXT -> "Next"
-            EditorInfo.IME_ACTION_PREVIOUS -> "Previous"
-            else -> "Done"
+            EditorInfo.IME_ACTION_GO -> context.getString(R.string.keyboard_go)
+            EditorInfo.IME_ACTION_SEARCH -> context.getString(R.string.keyboard_search)
+            EditorInfo.IME_ACTION_SEND -> context.getString(R.string.keyboard_send)
+            EditorInfo.IME_ACTION_NEXT -> context.getString(R.string.keyboard_next)
+            EditorInfo.IME_ACTION_PREVIOUS -> context.getString(R.string.keyboard_previous)
+            else -> context.getString(R.string.keyboard_done)
         }
 
     private fun resolveKeyboardResource(): Int {
