@@ -37,6 +37,10 @@
     <string name="menu_open_github">Open GitHub repository</string>
     <string name="menu_open_description">Open browser menu</string>
     <string name="menu_open_address_bar">Open address bar</string>
+    <string name="media_previous">Previous track</string>
+    <string name="media_play">Play media</string>
+    <string name="media_pause">Pause media</string>
+    <string name="media_next">Next track</string>
     <string name="menu_settings">Settings</string>
     <string name="menu_tabs">Tabs</string>
     <string name="menu_new_tab">New Tab</string>

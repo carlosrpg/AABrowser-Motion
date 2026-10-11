@@ -9,4 +9,7 @@
     <uses
         name="template"
         tools:ignore="InvalidUsesTagAttribute" />
+    <uses
+        name="media"
+        tools:ignore="InvalidUsesTagAttribute" />
 </automotiveApp>

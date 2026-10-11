@@ -1,0 +1,120 @@
+/*
+ * Copyright (C) 2025 AABrowser Contributors (https://github.com/kododake/AABrowser)
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://gnu.org>.
+ */
+
+package com.kododake.aabrowser.ui.compose.screens.menu
+
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import com.kododake.aabrowser.R
+import com.kododake.aabrowser.ui.compose.theme.AABrowserTheme
+
+@Composable
+fun BrowserMediaControls(
+    stateHolder: MenuStateHolder,
+    onPrevious: () -> Unit,
+    onPlayPause: () -> Unit,
+    onNext: () -> Unit
+) {
+    AABrowserTheme {
+        AnimatedVisibility(
+            visible = stateHolder.mediaState.isAvailable,
+            enter = scaleIn(tween(180)) + fadeIn(tween(180)),
+            exit = scaleOut(tween(120)) + fadeOut(tween(120)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(18.dp),
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    tonalElevation = 2.dp
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (stateHolder.mediaState.canSkipPrevious) {
+                            MediaControlButton(
+                                icon = Icons.Rounded.SkipPrevious,
+                                description = stringResource(R.string.media_previous),
+                                onClick = onPrevious
+                            )
+                        }
+                        MediaControlButton(
+                            icon = if (stateHolder.mediaState.isPlaying) {
+                                Icons.Rounded.Pause
+                            } else {
+                                Icons.Rounded.PlayArrow
+                            },
+                            description = stringResource(
+                                if (stateHolder.mediaState.isPlaying) R.string.media_pause else R.string.media_play
+                            ),
+                            onClick = onPlayPause
+                        )
+                        if (stateHolder.mediaState.canSkipNext) {
+                            MediaControlButton(
+                                icon = Icons.Rounded.SkipNext,
+                                description = stringResource(R.string.media_next),
+                                onClick = onNext
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MediaControlButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    description: String,
+    onClick: () -> Unit
+) {
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier.size(48.dp)
+    ) {
+        Icon(icon, contentDescription = description)
+    }
+}

@@ -103,13 +103,14 @@ class BrowserUIManager(
         val margin = (16 * density).toInt()
         val position = BrowserPreferences.getQuickActionButtonPosition(context)
         val layoutParams = binding.fabComposeView.layoutParams as CoordinatorLayout.LayoutParams
+        val isTop = position == QuickActionButtonPosition.TOP_LEFT || position == QuickActionButtonPosition.TOP_RIGHT
+        val verticalGravity = if (isTop) android.view.Gravity.TOP else android.view.Gravity.BOTTOM
         layoutParams.gravity = when (position) {
             QuickActionButtonPosition.BOTTOM_LEFT -> android.view.Gravity.BOTTOM or android.view.Gravity.START
             QuickActionButtonPosition.BOTTOM_RIGHT -> android.view.Gravity.BOTTOM or android.view.Gravity.END
             QuickActionButtonPosition.TOP_LEFT -> android.view.Gravity.TOP or android.view.Gravity.START
             QuickActionButtonPosition.TOP_RIGHT -> android.view.Gravity.TOP or android.view.Gravity.END
         }
-        val isTop = position == QuickActionButtonPosition.TOP_LEFT || position == QuickActionButtonPosition.TOP_RIGHT
         layoutParams.setMargins(margin, margin, margin, margin)
         binding.fabComposeView.layoutParams = layoutParams
 
