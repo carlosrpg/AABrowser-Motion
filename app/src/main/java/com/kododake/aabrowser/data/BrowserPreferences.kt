@@ -20,6 +20,7 @@ package com.kododake.aabrowser.data
 import android.content.Context
 import com.kododake.aabrowser.data.prefs.BookmarkPreferences
 import com.kododake.aabrowser.data.prefs.DisplayPreferences
+import com.kododake.aabrowser.data.prefs.MediaPreferences
 import com.kododake.aabrowser.data.prefs.SitePermissionPreferences
 import com.kododake.aabrowser.data.prefs.TabSessionPreferences
 import com.kododake.aabrowser.data.prefs.UIPreferences
@@ -33,6 +34,7 @@ import com.kododake.aabrowser.ui.compose.screens.bookmarks.BookmarkEntry
 
 object BrowserPreferences {
     typealias TabSessionEntry = TabSessionPreferences.TabSessionEntry
+    typealias MediaCheckpoint = MediaPreferences.MediaCheckpoint
 
     const val MAX_START_PAGE_SITES = BookmarkPreferences.MAX_START_PAGE_SITES
     const val MAX_OPEN_TABS = TabSessionPreferences.MAX_OPEN_TABS
@@ -89,6 +91,15 @@ object BrowserPreferences {
     fun getSavedActiveTabIndex(context: Context): Int = TabSessionPreferences.getSavedActiveTabIndex(context)
     fun persistTabSession(context: Context, tabs: List<TabSessionEntry>, activeIndex: Int) = TabSessionPreferences.persistTabSession(context, tabs, activeIndex)
     fun clearSavedTabSession(context: Context) = TabSessionPreferences.clearSavedTabSession(context)
+    fun getMediaCheckpoint(context: Context): MediaCheckpoint? = MediaPreferences.getMediaCheckpoint(context)
+    fun persistMediaCheckpoint(
+        context: Context,
+        pageUrl: String,
+        mediaId: String,
+        positionMs: Long,
+        durationMs: Long
+    ) = MediaPreferences.persistMediaCheckpoint(context, pageUrl, mediaId, positionMs, durationMs)
+    fun clearMediaCheckpoint(context: Context) = MediaPreferences.clearMediaCheckpoint(context)
 
     // --- Home Page ---
     fun getHomePageUrl(context: Context): String? = TabSessionPreferences.getHomePageUrl(context)

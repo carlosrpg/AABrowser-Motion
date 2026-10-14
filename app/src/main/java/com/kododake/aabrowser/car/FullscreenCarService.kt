@@ -37,6 +37,8 @@ import androidx.car.app.SurfaceCallback
 import androidx.car.app.SurfaceContainer
 import androidx.car.app.model.Action
 import androidx.car.app.model.ActionStrip
+import androidx.car.app.model.ItemList
+import androidx.car.app.model.Row
 import androidx.car.app.model.SearchTemplate
 import androidx.car.app.model.Template
 import androidx.car.app.navigation.model.NavigationTemplate
@@ -263,6 +265,7 @@ class FullscreenCarService : CarAppService() {
         private val onClosed: () -> Unit
     ) : Screen(carContext) {
         private var submitted = false
+        private var searchText = inputSession.previewText.orEmpty()
 
         init {
             lifecycle.addObserver(object : DefaultLifecycleObserver {
@@ -278,14 +281,13 @@ class FullscreenCarService : CarAppService() {
         override fun onGetTemplate(): Template =
             SearchTemplate.Builder(
                 object : SearchTemplate.SearchCallback {
+                    override fun onSearchTextChanged(searchText: String) {
+                        this@WebInputScreen.searchText = searchText
+                        invalidate()
+                    }
+
                     override fun onSearchSubmitted(searchText: String) {
-                        val browser = getPresentation()
-                        if (browser?.submitExternalInput(inputSession, searchText) == true) {
-                            submitted = true
-                            finish()
-                        } else {
-                            Log.e(TAG, "Unable to apply host keyboard text to the focused editor")
-                        }
+                        submitSearch(searchText)
                     }
                 }
             )
@@ -294,9 +296,34 @@ class FullscreenCarService : CarAppService() {
                         getCarContext().getString(R.string.menu_address_label)
                     }
                 )
-                .setInitialSearchText(inputSession.previewText.orEmpty())
+                .setInitialSearchText(searchText)
                 .setShowKeyboardByDefault(true)
+                .apply {
+                    searchText.takeIf(String::isNotBlank)?.let { value ->
+                        setItemList(
+                            ItemList.Builder()
+                                .addItem(
+                                    Row.Builder()
+                                        .setTitle(getCarContext().getString(R.string.car_input_use_entered_text))
+                                        .addText(value)
+                                        .setOnClickListener { submitSearch(value) }
+                                        .build()
+                                )
+                                .build()
+                        )
+                    }
+                }
                 .build()
+
+        private fun submitSearch(text: String) {
+            val browser = getPresentation()
+            if (browser?.submitExternalInput(inputSession, text) == true) {
+                submitted = true
+                finish()
+            } else {
+                Log.e(TAG, "Unable to apply host keyboard text to the focused editor")
+            }
+        }
     }
 
     private companion object {

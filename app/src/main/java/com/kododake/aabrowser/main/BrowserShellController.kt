@@ -97,7 +97,8 @@ class BrowserShellController(
         getPageUrl = { currentUrl },
         onStateChanged = { state ->
             managers.uiManager.menuHelper.updateMediaState(state)
-        }
+        },
+        onMediaPositionRestoreAttempted = managers.uiManager::showMediaRestoreCueTemporarily
     )
 
     private val menuFabController = MenuFabController(
@@ -145,7 +146,8 @@ class BrowserShellController(
                 onAddressInputFocusChanged = hostContext::onAddressInputFocusChanged,
                 onMediaPrevious = mediaController::skipPrevious,
                 onMediaPlayPause = mediaController::togglePlayback,
-                onMediaNext = mediaController::skipNext
+                onMediaNext = mediaController::skipNext,
+                onMediaFullscreen = mediaController::toggleFullscreen
             )
         )
         setup.initializeUi(
@@ -209,15 +211,20 @@ class BrowserShellController(
     }
 
     fun onPause() {
-        managers.uiManager.exitFullscreen()
-        webView?.onPause()
+        mediaController.captureCurrentPosition()
+        if (!mediaController.isPlaying()) {
+            managers.uiManager.exitFullscreen()
+            webView?.onPause()
+        }
         managers.tabManager.persistTabSession()
         runCatching { CookieManager.getInstance().flush() }
     }
 
     fun onDestroy() {
+        mediaController.captureCurrentPosition()
         mediaController.destroy()
         menuFabController.cleanup()
+        managers.uiManager.cleanup()
         managers.uiManager.exitFullscreen()
         managers.startPageManager.onDestroy()
         managers.tabManager.destroy()

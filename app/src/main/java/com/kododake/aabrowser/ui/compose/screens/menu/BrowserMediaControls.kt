@@ -35,14 +35,17 @@ import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.kododake.aabrowser.R
 import com.kododake.aabrowser.ui.compose.theme.AABrowserTheme
@@ -56,7 +59,8 @@ fun BrowserMediaControls(
 ) {
     AABrowserTheme {
         AnimatedVisibility(
-            visible = stateHolder.mediaState.isAvailable && stateHolder.isFabVisible,
+            visible = stateHolder.mediaState.isAvailable &&
+                (stateHolder.isFabVisible || stateHolder.isFullscreenMediaControlsVisible),
             enter = scaleIn(tween(180)) + fadeIn(tween(180)),
             exit = scaleOut(tween(120)) + fadeOut(tween(120)),
             modifier = Modifier
@@ -97,6 +101,53 @@ fun BrowserMediaControls(
 }
 
 @Composable
+fun BrowserFullscreenControl(
+    stateHolder: MenuStateHolder,
+    onClick: () -> Unit
+) {
+    AABrowserTheme {
+        AnimatedVisibility(
+            visible = stateHolder.mediaState.hasFullscreenButton &&
+                (stateHolder.isFabVisible || stateHolder.isFullscreenMediaControlsVisible),
+            enter = scaleIn(tween(180)) + fadeIn(tween(180)),
+            exit = scaleOut(tween(120)) + fadeOut(tween(120))
+        ) {
+            MediaControlButton(
+                icon = Icons.Rounded.Fullscreen,
+                description = stringResource(R.string.media_fullscreen),
+                onClick = onClick,
+                size = 56.dp,
+                iconSize = 26.dp
+            )
+        }
+    }
+}
+
+@Composable
+fun MediaRestoreCue(visible: Boolean) {
+    AABrowserTheme {
+        AnimatedVisibility(
+            visible = visible,
+            enter = fadeIn(tween(180)),
+            exit = fadeOut(tween(180))
+        ) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.inverseSurface,
+                contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+                tonalElevation = 4.dp
+            ) {
+                Text(
+                    text = stringResource(R.string.media_restoring_position),
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun MediaControlSlot(
     visible: Boolean,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
@@ -121,9 +172,12 @@ private fun MediaControlSlot(
 private fun MediaControlButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     description: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    size: Dp = 64.dp,
+    iconSize: Dp = 32.dp
 ) {
     Surface(
+        modifier = Modifier.size(size),
         shape = RoundedCornerShape(18.dp),
         color = MaterialTheme.colorScheme.secondaryContainer,
         contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -131,12 +185,12 @@ private fun MediaControlButton(
     ) {
         IconButton(
             onClick = onClick,
-            modifier = Modifier.size(64.dp)
+            modifier = Modifier.size(size)
         ) {
             Icon(
                 icon,
                 contentDescription = description,
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.size(iconSize)
             )
         }
     }

@@ -22,6 +22,8 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import com.kododake.aabrowser.model.BrowserMediaState
 import com.kododake.aabrowser.ui.compose.screens.menu.BrowserMenuFab
 import com.kododake.aabrowser.ui.compose.screens.menu.BrowserMediaControls
+import com.kododake.aabrowser.ui.compose.screens.menu.BrowserFullscreenControl
+import com.kododake.aabrowser.ui.compose.screens.menu.MediaRestoreCue
 import com.kododake.aabrowser.ui.compose.screens.menu.BrowserMenuSheet
 import com.kododake.aabrowser.ui.compose.screens.menu.MenuActions
 import com.kododake.aabrowser.ui.compose.screens.menu.MenuStateHolder
@@ -78,8 +80,36 @@ class MenuSetupHelper {
         }
     }
 
+    fun setupFullscreenControl(
+        composeView: ComposeView,
+        onClick: () -> Unit
+    ) {
+        composeView.apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                BrowserFullscreenControl(
+                    stateHolder = stateHolder,
+                    onClick = onClick
+                )
+            }
+        }
+    }
+
+    fun setupMediaRestoreCue(composeView: ComposeView) {
+        composeView.apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                MediaRestoreCue(visible = stateHolder.isMediaRestoreCueVisible)
+            }
+        }
+    }
+
     fun showFab() { stateHolder.isFabVisible = true }
     fun hideFab() { stateHolder.isFabVisible = false }
+    fun showFullscreenMediaControls() { stateHolder.isFullscreenMediaControlsVisible = true }
+    fun hideFullscreenMediaControls() { stateHolder.isFullscreenMediaControlsVisible = false }
+    fun showMediaRestoreCue() { stateHolder.isMediaRestoreCueVisible = true }
+    fun hideMediaRestoreCue() { stateHolder.isMediaRestoreCueVisible = false }
     fun setFabMode(addressBarMode: Boolean) { stateHolder.fabIsAddressBarMode = addressBarMode }
     fun updateMediaState(state: BrowserMediaState) { stateHolder.mediaState = state }
 

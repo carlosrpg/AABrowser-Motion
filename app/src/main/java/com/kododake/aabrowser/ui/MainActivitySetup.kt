@@ -79,7 +79,8 @@ class MainActivitySetup(
         val onAddressInputFocusChanged: (Boolean) -> Unit = {},
         val onMediaPrevious: () -> Unit = {},
         val onMediaPlayPause: () -> Unit = {},
-        val onMediaNext: () -> Unit = {}
+        val onMediaNext: () -> Unit = {},
+        val onMediaFullscreen: () -> Unit = {}
     )
 
     fun initializeUi(
@@ -184,6 +185,11 @@ class MainActivitySetup(
             onPlayPause = actions.onMediaPlayPause,
             onNext = actions.onMediaNext
         )
+        managers.uiManager.menuHelper.setupFullscreenControl(
+            composeView = binding.fullscreenControlComposeView,
+            onClick = actions.onMediaFullscreen
+        )
+        managers.uiManager.menuHelper.setupMediaRestoreCue(binding.mediaRestoreCueComposeView)
         managers.uiManager.menuHelper.updateVersion("v${com.kododake.aabrowser.BuildConfig.VERSION_NAME}")
         val isFullscreen = BrowserPreferences.shouldUseFullscreenMode(context)
         managers.uiManager.menuHelper.stateHolder.isFullscreenMode = isFullscreen

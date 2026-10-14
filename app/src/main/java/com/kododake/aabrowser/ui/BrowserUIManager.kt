@@ -28,6 +28,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.view.isVisible
 import androidx.compose.ui.graphics.toArgb
+import com.kododake.aabrowser.AppConstants.MENU_BUTTON_AUTO_HIDE_DELAY_MS
 import com.kododake.aabrowser.R
 import com.kododake.aabrowser.bookmarks.BookmarkManager
 import com.kododake.aabrowser.data.BrowserPreferences
@@ -59,14 +60,24 @@ class BrowserUIManager(
         fun showMenuButtonTemporarily()
     }
 
+    val menuHelper = com.kododake.aabrowser.ui.controllers.MenuSetupHelper()
+
+    private val hideFullscreenMediaControlsRunnable = Runnable {
+        menuHelper.hideFullscreenMediaControls()
+    }
+    private val hideMediaRestoreCueRunnable = Runnable {
+        menuHelper.hideMediaRestoreCue()
+    }
+
     private val fullscreenController = FullscreenController(
         context = context,
         window = window,
         binding = binding,
-        onFullscreenChanged = { }
+        onFullscreenChanged = { isFullscreen ->
+            if (!isFullscreen) hideFullscreenMediaControls()
+        },
+        onFullscreenInteraction = ::showFullscreenMediaControlsTemporarily
     )
-
-    val menuHelper = com.kododake.aabrowser.ui.controllers.MenuSetupHelper()
 
     fun isInFullscreen(): Boolean = fullscreenController.isInFullscreen()
     fun isImmersiveMode(): Boolean = fullscreenController.isImmersiveMode()
@@ -96,15 +107,45 @@ class BrowserUIManager(
         )
     }
 
+    private fun showFullscreenMediaControlsTemporarily() {
+        if (!fullscreenController.isInFullscreen()) return
+        menuHelper.showFullscreenMediaControls()
+        binding.root.removeCallbacks(hideFullscreenMediaControlsRunnable)
+        binding.root.postDelayed(
+            hideFullscreenMediaControlsRunnable,
+            MENU_BUTTON_AUTO_HIDE_DELAY_MS
+        )
+    }
+
+    private fun hideFullscreenMediaControls() {
+        binding.root.removeCallbacks(hideFullscreenMediaControlsRunnable)
+        menuHelper.hideFullscreenMediaControls()
+    }
+
+    fun showMediaRestoreCueTemporarily() {
+        menuHelper.showMediaRestoreCue()
+        binding.root.removeCallbacks(hideMediaRestoreCueRunnable)
+        binding.root.postDelayed(
+            hideMediaRestoreCueRunnable,
+            MENU_BUTTON_AUTO_HIDE_DELAY_MS
+        )
+    }
+
+    fun cleanup() {
+        binding.root.removeCallbacks(hideFullscreenMediaControlsRunnable)
+        binding.root.removeCallbacks(hideMediaRestoreCueRunnable)
+        menuHelper.hideFullscreenMediaControls()
+        menuHelper.hideMediaRestoreCue()
+    }
+
     fun applyQuickActionButtonPreferences() {
         val mode = BrowserPreferences.getQuickActionButtonMode(context)
         menuHelper.setFabMode(mode == QuickActionButtonMode.ADDRESS_BAR)
         val density = context.resources.displayMetrics.density
         val margin = (16 * density).toInt()
+        val fabInset = (6 * density).toInt()
         val position = BrowserPreferences.getQuickActionButtonPosition(context)
         val layoutParams = binding.fabComposeView.layoutParams as CoordinatorLayout.LayoutParams
-        val isTop = position == QuickActionButtonPosition.TOP_LEFT || position == QuickActionButtonPosition.TOP_RIGHT
-        val verticalGravity = if (isTop) android.view.Gravity.TOP else android.view.Gravity.BOTTOM
         layoutParams.gravity = when (position) {
             QuickActionButtonPosition.BOTTOM_LEFT -> android.view.Gravity.BOTTOM or android.view.Gravity.START
             QuickActionButtonPosition.BOTTOM_RIGHT -> android.view.Gravity.BOTTOM or android.view.Gravity.END
@@ -113,6 +154,24 @@ class BrowserUIManager(
         }
         layoutParams.setMargins(margin, margin, margin, margin)
         binding.fabComposeView.layoutParams = layoutParams
+
+        val fullscreenControlLayoutParams =
+            binding.fullscreenControlComposeView.layoutParams as CoordinatorLayout.LayoutParams
+        fullscreenControlLayoutParams.gravity = layoutParams.gravity
+        val fabSize = (56 * density).toInt()
+        val controlGap = (24 * density).toInt()
+        val adjacentMargin = margin + fabInset + fabSize + controlGap
+        val fabIsLeft = position == QuickActionButtonPosition.BOTTOM_LEFT ||
+            position == QuickActionButtonPosition.TOP_LEFT
+        val fabIsTop = position == QuickActionButtonPosition.TOP_LEFT ||
+            position == QuickActionButtonPosition.TOP_RIGHT
+        fullscreenControlLayoutParams.setMargins(
+            if (fabIsLeft) adjacentMargin else margin,
+            if (fabIsTop) margin + fabInset else margin,
+            if (fabIsLeft) margin else adjacentMargin,
+            if (fabIsTop) margin else margin + fabInset
+        )
+        binding.fullscreenControlComposeView.layoutParams = fullscreenControlLayoutParams
 
         val alwaysVisible = BrowserPreferences.isQuickActionButtonAlwaysVisible(context)
         if ((startPageManager.isShowingStartPage || alwaysVisible) && !isInFullscreen() && !binding.menuOverlay.isVisible) {
