@@ -29,7 +29,7 @@ object StartPagePreferences {
 
     private val DEFAULT_START_PAGE_SITES = listOf(
         "https://www.google.com",
-        "https://www.youtube.com",
+        "https://m.youtube.com",
         "https://globoplay.com",
         "https://youtubekids.com",
         "https://www.clarotvmais.com.br",
@@ -37,11 +37,11 @@ object StartPagePreferences {
     )
     private val LEGACY_DEFAULT_START_PAGE_SLOTS = listOf(
         "https://www.google.com",
-        "https://youtube.com",
-        "https://duckduckgo.com",
-        "https://keepandroidopen.org",
-        "https://kododake.com/game/",
-        ""
+        "https://m.youtube.com",
+        "https://globoplay.com",
+        "https://m.youtubekids.com",
+        "https://www.clarotvmais.com.br",
+        "https://www.crunchyroll.com"
     )
 
     @Volatile

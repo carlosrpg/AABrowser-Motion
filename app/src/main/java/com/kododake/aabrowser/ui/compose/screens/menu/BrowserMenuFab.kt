@@ -50,7 +50,7 @@ fun BrowserMenuFab(
 ) {
     AABrowserTheme {
         AnimatedVisibility(
-            visible = stateHolder.isFabVisible,
+            visible = stateHolder.isFabVisible || stateHolder.isFullscreenMediaControlsVisible,
             enter = scaleIn(tween(180)) + fadeIn(tween(180)),
             exit = scaleOut(tween(120)) + fadeOut(tween(120)),
             modifier = Modifier.padding(6.dp)

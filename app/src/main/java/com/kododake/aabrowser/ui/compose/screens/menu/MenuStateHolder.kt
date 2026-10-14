@@ -39,6 +39,8 @@ class MenuStateHolder {
     var isMenuVisible by mutableStateOf(false)
     var isReturningFromSubscreen by mutableStateOf(false)
     var isFabVisible by mutableStateOf(false)
+    var isFullscreenMediaControlsVisible by mutableStateOf(false)
+    var isMediaRestoreCueVisible by mutableStateOf(false)
     var fabIsAddressBarMode by mutableStateOf(false)
     var mediaState by mutableStateOf(BrowserMediaState.None)
 

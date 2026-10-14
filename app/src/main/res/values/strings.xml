@@ -42,6 +42,9 @@
     <string name="media_play">Play media</string>
     <string name="media_pause">Pause media</string>
     <string name="media_next">Next track</string>
+    <string name="media_fullscreen">Enter fullscreen</string>
+    <string name="car_input_use_entered_text">Use entered text</string>
+    <string name="media_restoring_position">Restoring playback position…</string>
     <string name="media_notification_channel_name">Browser media</string>
     <string name="media_notification_channel_description">Playback controls for audio and video in the browser.</string>
     <string name="media_browser_now_playing">Now playing in browser</string>

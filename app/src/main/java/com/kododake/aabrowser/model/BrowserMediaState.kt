@@ -22,6 +22,7 @@ data class BrowserMediaState(
     val isPlaying: Boolean = false,
     val canSkipPrevious: Boolean = false,
     val canSkipNext: Boolean = false,
+    val hasFullscreenButton: Boolean = false,
     val title: String = "",
     val artist: String = "",
     val album: String = "",

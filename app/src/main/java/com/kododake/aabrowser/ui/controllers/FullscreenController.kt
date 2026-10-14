@@ -20,6 +20,7 @@ package com.kododake.aabrowser.ui.controllers
 import android.content.Context
 import android.view.View
 import android.view.ViewGroup
+import android.view.MotionEvent
 import android.view.WindowManager
 import android.view.Window
 import android.webkit.WebChromeClient
@@ -32,7 +33,8 @@ class FullscreenController(
     private val context: Context,
     private val window: Window?,
     private val binding: ActivityMainBinding,
-    private val onFullscreenChanged: (Boolean) -> Unit
+    private val onFullscreenChanged: (Boolean) -> Unit,
+    private val onFullscreenInteraction: () -> Unit = {}
 ) {
     private var customView: View? = null
     private var customViewCallback: WebChromeClient.CustomViewCallback? = null
@@ -76,10 +78,13 @@ class FullscreenController(
 
         onPrepareEnter()
 
+        val touchHost = TouchAwareFullscreenContainer(context, onFullscreenInteraction).apply {
+            addView(view, FrameLayout.LayoutParams(-1, -1))
+        }
         binding.fullscreenContainer.apply {
             visibility = View.VISIBLE
             removeAllViews()
-            addView(view, FrameLayout.LayoutParams(-1, -1))
+            addView(touchHost, FrameLayout.LayoutParams(-1, -1))
             bringToFront()
         }
 
@@ -112,5 +117,17 @@ class FullscreenController(
         }
         updateSystemBars()
         onFullscreenChanged(false)
+    }
+
+    private class TouchAwareFullscreenContainer(
+        context: Context,
+        private val onFullscreenInteraction: () -> Unit
+    ) : FrameLayout(context) {
+        override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+            if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+                onFullscreenInteraction()
+            }
+            return super.dispatchTouchEvent(event)
+        }
     }
 }

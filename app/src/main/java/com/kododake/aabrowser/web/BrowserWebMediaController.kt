@@ -32,6 +32,7 @@ import android.webkit.WebView
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
+import com.kododake.aabrowser.data.BrowserPreferences
 import com.kododake.aabrowser.model.BrowserMediaState
 import java.io.IOException
 import java.net.HttpURLConnection
@@ -46,9 +47,11 @@ internal class BrowserWebMediaController(
     private val getWebView: () -> WebView?,
     private val getPageTitle: () -> String,
     private val getPageUrl: () -> String,
-    private val onStateChanged: (BrowserMediaState) -> Unit
+    private val onStateChanged: (BrowserMediaState) -> Unit,
+    private val onMediaPositionRestoreAttempted: () -> Unit = {}
 ) {
     internal val applicationContext = context.applicationContext
+    private var pendingMediaRestore = BrowserPreferences.getMediaCheckpoint(applicationContext)
     private val handler = Handler(Looper.getMainLooper())
     private val appIcon = createAppIcon()
     private val artworkExecutor = Executors.newSingleThreadExecutor()
@@ -56,6 +59,8 @@ internal class BrowserWebMediaController(
     private var currentWebView: WebView? = null
     private var mediaState = BrowserMediaState.None
     private var isDestroyed = false
+    private var mediaPositionRestoreAttempts = 0
+    private var mediaPositionRestoreSeekIssued = false
     private var isYouTubePlaylist = false
     private var youtubeNextUrl: String? = null
     private var youtubePreviousUrl: String? = null
@@ -193,6 +198,24 @@ internal class BrowserWebMediaController(
         execute(if (mediaState.isPlaying) PAUSE_SCRIPT else PLAY_SCRIPT)
     }
 
+    fun isPlaying(): Boolean = mediaState.isPlaying
+
+    fun captureCurrentPosition() {
+        val webView = getWebView() ?: return
+        if (mediaState.isAvailable) {
+            BrowserPreferences.persistMediaCheckpoint(
+                applicationContext,
+                webView.url ?: getPageUrl(),
+                mediaState.mediaId,
+                mediaState.positionMs,
+                mediaState.durationMs
+            )
+        }
+        webView.evaluateJavascript(createMonitorScript()) { result ->
+            onMonitorResult(webView, result)
+        }
+    }
+
     internal fun playFromMediaSession() {
         execute(PLAY_SCRIPT)
     }
@@ -293,6 +316,7 @@ internal class BrowserWebMediaController(
 
     fun skipNext() {
         when {
+            isYouTubePage() && mediaState.canSkipNext -> execute(YOUTUBE_NEXT_SCRIPT)
             isYouTubePage() && isYouTubePlaylist ->
                 youtubeNextUrl?.let(::navigateToPlaylistUrl) ?: execute(YOUTUBE_PLAYLIST_NEXT_SCRIPT)
             isYouTubePage() -> execute(YOUTUBE_NEXT_SCRIPT)
@@ -300,8 +324,13 @@ internal class BrowserWebMediaController(
         }
     }
 
+    fun toggleFullscreen() {
+        execute(FULLSCREEN_SCRIPT)
+    }
+
     fun skipPrevious() {
         when {
+            isYouTubePage() && mediaState.canSkipPrevious -> execute(YOUTUBE_PREVIOUS_SCRIPT)
             isYouTubePage() && isYouTubePlaylist ->
                 youtubePreviousUrl?.let(::navigateToPlaylistUrl) ?: execute(YOUTUBE_PLAYLIST_PREVIOUS_SCRIPT)
             isYouTubePage() -> execute(YOUTUBE_PREVIOUS_SCRIPT)
@@ -376,6 +405,7 @@ internal class BrowserWebMediaController(
             isPlaying = data.optBoolean("playing"),
             canSkipPrevious = data.optBoolean("hasPrevious"),
             canSkipNext = data.optBoolean("hasNext"),
+            hasFullscreenButton = data.optBoolean("hasFullscreenButton"),
             title = data.optString("title").ifBlank { fallbackTitle },
             artist = data.optString("artist")
                 .ifBlank { Uri.parse(pageUrl).host.orEmpty().ifBlank { applicationContext.packageName } },
@@ -387,6 +417,16 @@ internal class BrowserWebMediaController(
             durationMs = (data.optDouble("duration", 0.0) * 1_000.0).toLong().coerceAtLeast(0L),
             canSeek = data.optBoolean("canSeek")
         )
+        val restoringPosition = getWebView()?.let { restoreMediaPosition(it, pageUrl, newState) } == true
+        if (!restoringPosition) {
+            BrowserPreferences.persistMediaCheckpoint(
+                applicationContext,
+                pageUrl,
+                newState.mediaId,
+                newState.positionMs,
+                newState.durationMs
+            )
+        }
         publishState(newState)
         if (newState.isPlaying && newState.mediaId == pendingYoutubeAutoplayVideoId) {
             pendingYoutubeAutoplayVideoId = null
@@ -413,10 +453,79 @@ internal class BrowserWebMediaController(
         val uiStateChanged = state.isAvailable != mediaState.isAvailable ||
             state.isPlaying != mediaState.isPlaying ||
             state.canSkipPrevious != mediaState.canSkipPrevious ||
-            state.canSkipNext != mediaState.canSkipNext
+            state.canSkipNext != mediaState.canSkipNext ||
+            state.hasFullscreenButton != mediaState.hasFullscreenButton
         mediaState = state
         if (uiStateChanged) onStateChanged(state)
     }
+
+    private fun restoreMediaPosition(
+        webView: WebView,
+        pageUrl: String,
+        state: BrowserMediaState
+    ): Boolean {
+        val checkpoint = pendingMediaRestore ?: return false
+        val checkpointIsYouTubeVideo = YOUTUBE_VIDEO_ID_REGEX.matches(checkpoint.mediaId)
+        if (checkpoint.mediaId != state.mediaId) {
+            val waitingForYouTubeVideoId = checkpointIsYouTubeVideo &&
+                isYouTubeHost(Uri.parse(pageUrl).host.orEmpty()) &&
+                !YOUTUBE_VIDEO_ID_REGEX.matches(state.mediaId)
+            if (waitingForYouTubeVideoId) return true
+            clearMediaPositionRestore()
+            return false
+        }
+        if (checkpoint.pageUrl != pageUrl && !checkpointIsYouTubeVideo) {
+            clearMediaPositionRestore()
+            return false
+        }
+        if (!state.canSeek || state.durationMs <= 0L) {
+            return waitForMediaPositionRestore()
+        }
+
+        val targetPositionMs = checkpoint.positionMs.coerceAtMost(state.durationMs - 1_000L)
+        if (targetPositionMs <= 0L) {
+            clearMediaPositionRestore()
+            return false
+        }
+        if (kotlin.math.abs(state.positionMs - targetPositionMs) <= MEDIA_POSITION_RESTORE_TOLERANCE_MS) {
+            clearMediaPositionRestore()
+            return false
+        }
+        if (mediaPositionRestoreAttempts >= MAX_MEDIA_POSITION_RESTORE_ATTEMPTS) {
+            Log.w(TAG, "Could not restore the saved media position after multiple seek attempts")
+            clearMediaPositionRestore()
+            return false
+        }
+
+        mediaPositionRestoreAttempts++
+        if (!mediaPositionRestoreSeekIssued) {
+            mediaPositionRestoreSeekIssued = true
+            onMediaPositionRestoreAttempted()
+            val targetSeconds = targetPositionMs / 1_000.0
+            webView.evaluateJavascript(createSeekScript(targetSeconds), null)
+        }
+        return true
+    }
+
+    private fun waitForMediaPositionRestore(): Boolean {
+        if (mediaPositionRestoreAttempts >= MAX_MEDIA_POSITION_RESTORE_ATTEMPTS) {
+            Log.w(TAG, "Media did not become seekable while restoring its saved position")
+            clearMediaPositionRestore()
+            return false
+        }
+        mediaPositionRestoreAttempts++
+        return true
+    }
+
+    private fun clearMediaPositionRestore() {
+        pendingMediaRestore = null
+        mediaPositionRestoreAttempts = 0
+        mediaPositionRestoreSeekIssued = false
+        BrowserPreferences.clearMediaCheckpoint(applicationContext)
+    }
+
+    private fun createSeekScript(positionSeconds: Double): String =
+        SEEK_TO_POSITION_SCRIPT.replace("__AA_BROWSER_SEEK_SECONDS__", positionSeconds.toString())
 
     private fun publishSessionState(state: BrowserMediaState, updateMetadata: Boolean) {
         val metadata = if (updateMetadata && state.isAvailable) buildMetadata(state) else null
@@ -551,7 +660,9 @@ internal class BrowserWebMediaController(
 
     private fun isYouTubeHost(host: String): Boolean =
         host.equals("youtube.com", ignoreCase = true) ||
-            host.endsWith(".youtube.com", ignoreCase = true)
+            host.endsWith(".youtube.com", ignoreCase = true) ||
+            host.equals("youtube-nocookie.com", ignoreCase = true) ||
+            host.endsWith(".youtube-nocookie.com", ignoreCase = true)
 
     private fun youtubeVideoIdFromWatchUrl(candidate: String): String? {
         val uri = Uri.parse(candidate)
@@ -617,6 +728,8 @@ internal class BrowserWebMediaController(
 
     private companion object {
         const val MONITOR_INTERVAL_MS = 3_000L
+        const val MAX_MEDIA_POSITION_RESTORE_ATTEMPTS = 8
+        const val MEDIA_POSITION_RESTORE_TOLERANCE_MS = 5_000L
         const val BROWSER_URL_PLACEHOLDER = "__AA_BROWSER_CURRENT_URL__"
         const val TAG = "BrowserWebMedia"
         const val ARTWORK_TIMEOUT_MS = 5_000
@@ -690,7 +803,6 @@ internal class BrowserWebMediaController(
               const metadata = navigator.mediaSession && navigator.mediaSession.metadata;
               const youtubePlayer = document.getElementById("movie_player") ||
                 document.querySelector(".html5-video-player");
-              const isYouTube = /(^|\.)youtube\.com$/i.test(location.hostname);
               let youtubeVideoData = null;
               let youtubePlayerState = -1;
               try {
@@ -710,6 +822,8 @@ internal class BrowserWebMediaController(
                   pageUrl = browserUrl;
                 }
               } catch (_) {}
+              const isYouTube = /(^|\.)(youtube|youtube-nocookie)\.com$/i.test(location.hostname) ||
+                /(^|\.)(youtube|youtube-nocookie)\.com$/i.test(pageUrl.hostname);
               const pageVideoId = pageUrl.searchParams.get("v") ||
                 (pageUrl.pathname.indexOf("/shorts/") === 0
                   ? pageUrl.pathname.substring("/shorts/".length).split("/")[0] : "");
@@ -759,13 +873,17 @@ internal class BrowserWebMediaController(
                 "ytm-playlist-panel-renderer, ytd-playlist-panel-renderer, ytmusic-player-queue"
               );
               const isPlaylist = !!playlistId || !!playlistPanel;
+              const fullscreenButton = document.querySelector(".ytp-fullscreen-button") ||
+                document.querySelector(".icon-button.fullscreen-icon");
+              const youtubeNextButton = document.querySelector(".ytp-next-button");
+              const youtubePreviousButton = document.querySelector(".ytp-prev-button");
               const controls = Array.from(
                 document.querySelectorAll(".player-middle-controls-prev-next-button")
               );
               const isEnabled = button =>
                 !!button && !button.disabled && button.getAttribute("aria-disabled") !== "true";
               return JSON.stringify({
-                found: players.length > 0 || !!youtubeVideoId,
+                found: players.length > 0 || !!youtubeVideoId || !!fullscreenButton,
                 isYouTube: isYouTube,
                 playing: !!active || youtubePlayerState === 1,
                 title: title,
@@ -779,12 +897,17 @@ internal class BrowserWebMediaController(
                 duration: duration,
                 canSeek: canSeek && Number.isFinite(duration) && duration > 0,
                 isPlaylist: isPlaylist,
-                hasNext: isPlaylist ? isEnabled(controls[1]) :
-                  typeof bridge.next === "function" ||
-                    !!(youtubePlayer && typeof youtubePlayer.nextVideo === "function"),
-                hasPrevious: isPlaylist ? isEnabled(controls[0]) :
-                  typeof bridge.previous === "function" ||
-                    !!(youtubePlayer && typeof youtubePlayer.previousVideo === "function")
+                hasNext: isYouTube
+                  ? !!youtubeNextButton ||
+                    (isPlaylist && isEnabled(controls[1]))
+                  : isPlaylist ? isEnabled(controls[1]) :
+                    typeof bridge.next === "function",
+                hasPrevious: isYouTube
+                  ? !!youtubePreviousButton ||
+                    (isPlaylist && isEnabled(controls[0]))
+                  : isPlaylist ? isEnabled(controls[0]) :
+                    typeof bridge.previous === "function",
+                hasFullscreenButton: !!fullscreenButton
               });
             })()
         """.trimIndent()
@@ -837,26 +960,77 @@ internal class BrowserWebMediaController(
         """.trimIndent()
 
         val YOUTUBE_PREVIOUS_SCRIPT = """
-            document.getElementById("movie_player")?.previousVideo();
+            (function() {
+              const button = document.querySelector(".ytp-prev-button");
+              if (button) {
+                button.click();
+                return;
+              }
+              const controls = document.querySelectorAll(".player-middle-controls-prev-next-button");
+              if (controls[0]) controls[0].click();
+            })();
         """.trimIndent()
 
         val YOUTUBE_NEXT_SCRIPT = """
-            document.getElementById("movie_player")?.nextVideo();
+            (function() {
+              const button = document.querySelector(".ytp-next-button");
+              if (button) {
+                button.click();
+                return;
+              }
+              const controls = document.querySelectorAll(".player-middle-controls-prev-next-button");
+              if (controls[1]) controls[1].click();
+            })();
         """.trimIndent()
 
         val YOUTUBE_PLAYLIST_NEXT_SCRIPT = """
             (function() {
               const controls = document.querySelectorAll(".player-middle-controls-prev-next-button");
-              if (controls.length > 1) controls[1].click();
+              const button = controls[1];
+              if (button && !button.disabled &&
+                  button.getAttribute("aria-disabled") !== "true" &&
+                  !button.classList.contains("ytp-button-disabled")) {
+                button.click();
+              }
             })();
         """.trimIndent()
 
         val YOUTUBE_PLAYLIST_PREVIOUS_SCRIPT = """
             (function() {
               const controls = document.querySelectorAll(".player-middle-controls-prev-next-button");
-              if (controls.length > 0) controls[0].click();
+              const button = controls[0];
+              if (button && !button.disabled &&
+                  button.getAttribute("aria-disabled") !== "true" &&
+                  !button.classList.contains("ytp-button-disabled")) {
+                button.click();
+              }
             })();
         """.trimIndent()
+
+        val FULLSCREEN_SCRIPT = """
+            (function() {
+              const youtubeButton = document.querySelector(".ytp-fullscreen-button");
+              const button = youtubeButton ||
+                document.querySelector(".icon-button.fullscreen-icon");
+              if (button) button.click();
+            })();
+        """.trimIndent()
+
+        const val SEEK_TO_POSITION_SCRIPT = """
+            (function() {
+              const seconds = __AA_BROWSER_SEEK_SECONDS__;
+              const player = document.getElementById("movie_player");
+              if (player && typeof player.seekTo === "function") {
+                player.seekTo(seconds, true);
+                return true;
+              }
+              const media = Array.from(document.querySelectorAll("video,audio"))
+                .find(item => !item.error && Number.isFinite(item.duration));
+              if (!media) return false;
+              media.currentTime = Math.min(seconds, media.duration);
+              return true;
+            })();
+        """
 
         val NEXT_SCRIPT = """
             (function() {
