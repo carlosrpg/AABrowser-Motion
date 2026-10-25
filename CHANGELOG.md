@@ -10,7 +10,7 @@
 - Previous restarts the current video when it is more than 10 seconds in; otherwise it goes to the previous item.
 - Long-pressing next/previous (car keys and on-screen buttons) seeks forward/backward; a tap still skips.
 - In portrait, show the fullscreen control above the menu button, at the same size as the media controls.
-- CI now versions the app with semantic versioning: each main build bumps the latest `vX.Y.Z` tag (`[major]`/`[minor]` or conventional `feat:`/`!:` commits select the bump, patch otherwise) and publishes a `vX.Y.Z` release; the version code is derived from the version.
+- CI now versions the app with semantic versioning: each main build bumps only the PATCH of the latest `vX.Y.Z` tag and publishes a `vX.Y.Z` release; major/minor bumps are made by pushing a `vX.Y.Z` tag manually, which builds and releases that exact version. The version code is derived from the version.
 - Rebranded the fork as AA Browser Motion, maintained by carlosrpg.
 - Added automated main-branch APK prereleases through GitHub Actions.
 - Added a startup safety notice with a persistent "Don't show again" option.
