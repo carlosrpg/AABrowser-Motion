@@ -39,17 +39,6 @@ internal object BrowserMediaSessionRegistry {
     private var currentState = BrowserMediaState.None
     private var currentMetadata: MediaMetadataCompat? = null
     private var serviceStartRequested = false
-    private var heldMediaKeyDirection = 0L
-    private var heldMediaKeySeeks = 0
-    private val heldMediaKeySeek = object : Runnable {
-        override fun run() {
-            // Cap so a missing ACTION_UP can't seek forever.
-            if (heldMediaKeyDirection == 0L || heldMediaKeySeeks >= MAX_HELD_KEY_SEEKS) return
-            heldMediaKeySeeks++
-            activeController?.seekBy(heldMediaKeyDirection * FAST_FORWARD_INTERVAL_MS)
-            callbackHandler.postDelayed(this, HELD_KEY_SEEK_INTERVAL_MS)
-        }
-    }
 
     @Synchronized
     fun getSession(context: Context): MediaSessionCompat {
@@ -81,7 +70,7 @@ internal object BrowserMediaSessionRegistry {
                     activeController?.pauseFromMediaSession()
                 }
 
-                // Car next/previous keys: tap skips (on release), hold seeks repeatedly.
+                // Car next/previous keys: tap skips, hold seeks (see BrowserWebMediaController.handleMediaKey).
                 override fun onMediaButtonEvent(mediaButtonEvent: Intent): Boolean {
                     @Suppress("DEPRECATION")
                     val event = mediaButtonEvent.getParcelableExtra<KeyEvent>(Intent.EXTRA_KEY_EVENT)
@@ -91,22 +80,7 @@ internal object BrowserMediaSessionRegistry {
                         else -> return super.onMediaButtonEvent(mediaButtonEvent)
                     }
                     Log.d(TAG, "Media key $event")
-                    val controller = activeController ?: return true
-                    // Timed on receipt: head units don't fill repeatCount/downTime/eventTime reliably.
-                    when (event.action) {
-                        KeyEvent.ACTION_DOWN -> if (heldMediaKeyDirection == 0L) {
-                            heldMediaKeyDirection = direction
-                            heldMediaKeySeeks = 0
-                            callbackHandler.postDelayed(heldMediaKeySeek, LONG_PRESS_MS)
-                        }
-                        KeyEvent.ACTION_UP -> {
-                            callbackHandler.removeCallbacks(heldMediaKeySeek)
-                            heldMediaKeyDirection = 0L
-                            if (heldMediaKeySeeks == 0 && !event.isCanceled) {
-                                if (direction > 0) controller.skipNext() else controller.skipPrevious()
-                            }
-                        }
-                    }
+                    activeController?.handleMediaKey(event, direction)
                     return true
                 }
 
@@ -240,10 +214,7 @@ internal object BrowserMediaSessionRegistry {
     }
 
     private const val SESSION_TAG = "AABrowserMotion.WebMedia"
-    private const val FAST_FORWARD_INTERVAL_MS = 15_000L
-    private const val HELD_KEY_SEEK_INTERVAL_MS = 500L
-    private const val LONG_PRESS_MS = 500L
-    private const val MAX_HELD_KEY_SEEKS = 20
+    const val FAST_FORWARD_INTERVAL_MS = 15_000L
     private const val SESSION_ACTIVITY_REQUEST = 2039
     private const val TAG = "BrowserMediaSession"
 }
