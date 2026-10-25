@@ -97,8 +97,11 @@ object BrowserPreferences {
         pageUrl: String,
         mediaId: String,
         positionMs: Long,
-        durationMs: Long
-    ) = MediaPreferences.persistMediaCheckpoint(context, pageUrl, mediaId, positionMs, durationMs)
+        durationMs: Long,
+        title: String,
+        artist: String,
+        artworkUrl: String?
+    ) = MediaPreferences.persistMediaCheckpoint(context, pageUrl, mediaId, positionMs, durationMs, title, artist, artworkUrl)
     fun clearMediaCheckpoint(context: Context) = MediaPreferences.clearMediaCheckpoint(context)
 
     // --- Home Page ---

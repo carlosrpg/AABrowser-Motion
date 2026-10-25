@@ -25,12 +25,18 @@ object MediaPreferences {
     private const val KEY_MEDIA_ID = "media_id"
     private const val KEY_MEDIA_POSITION_MS = "media_position_ms"
     private const val KEY_MEDIA_DURATION_MS = "media_duration_ms"
+    private const val KEY_MEDIA_TITLE = "media_title"
+    private const val KEY_MEDIA_ARTIST = "media_artist"
+    private const val KEY_MEDIA_ARTWORK_URL = "media_artwork_url"
 
     data class MediaCheckpoint(
         val pageUrl: String,
         val mediaId: String,
         val positionMs: Long,
-        val durationMs: Long
+        val durationMs: Long,
+        val title: String = "",
+        val artist: String = "",
+        val artworkUrl: String? = null
     )
 
     fun getMediaCheckpoint(context: Context): MediaCheckpoint? {
@@ -43,7 +49,10 @@ object MediaPreferences {
             pageUrl = pageUrl,
             mediaId = mediaId,
             positionMs = preferences.getLong(KEY_MEDIA_POSITION_MS, 0L).coerceAtLeast(0L),
-            durationMs = preferences.getLong(KEY_MEDIA_DURATION_MS, 0L).coerceAtLeast(0L)
+            durationMs = preferences.getLong(KEY_MEDIA_DURATION_MS, 0L).coerceAtLeast(0L),
+            title = preferences.getString(KEY_MEDIA_TITLE, null).orEmpty(),
+            artist = preferences.getString(KEY_MEDIA_ARTIST, null).orEmpty(),
+            artworkUrl = preferences.getString(KEY_MEDIA_ARTWORK_URL, null)
         )
     }
 
@@ -52,7 +61,10 @@ object MediaPreferences {
         pageUrl: String,
         mediaId: String,
         positionMs: Long,
-        durationMs: Long
+        durationMs: Long,
+        title: String,
+        artist: String,
+        artworkUrl: String?
     ) {
         if (!UrlFormatter.isHttpOrHttps(pageUrl) || mediaId.isBlank()) return
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -61,6 +73,9 @@ object MediaPreferences {
             .putString(KEY_MEDIA_ID, mediaId)
             .putLong(KEY_MEDIA_POSITION_MS, positionMs.coerceAtLeast(0L))
             .putLong(KEY_MEDIA_DURATION_MS, durationMs.coerceAtLeast(0L))
+            .putString(KEY_MEDIA_TITLE, title)
+            .putString(KEY_MEDIA_ARTIST, artist)
+            .putString(KEY_MEDIA_ARTWORK_URL, artworkUrl)
             .apply()
     }
 
@@ -71,6 +86,9 @@ object MediaPreferences {
             .remove(KEY_MEDIA_ID)
             .remove(KEY_MEDIA_POSITION_MS)
             .remove(KEY_MEDIA_DURATION_MS)
+            .remove(KEY_MEDIA_TITLE)
+            .remove(KEY_MEDIA_ARTIST)
+            .remove(KEY_MEDIA_ARTWORK_URL)
             .apply()
     }
 }

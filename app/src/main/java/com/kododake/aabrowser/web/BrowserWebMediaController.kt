@@ -221,7 +221,10 @@ internal class BrowserWebMediaController(
                 webView.url ?: getPageUrl(),
                 mediaState.mediaId,
                 mediaState.positionMs,
-                mediaState.durationMs
+                mediaState.durationMs,
+                mediaState.title,
+                mediaState.artist,
+                mediaState.artworkUrl
             )
         }
         webView.evaluateJavascript(createMonitorScript()) { result ->
@@ -477,7 +480,10 @@ internal class BrowserWebMediaController(
                 pageUrl,
                 newState.mediaId,
                 newState.positionMs,
-                newState.durationMs
+                newState.durationMs,
+                newState.title,
+                newState.artist,
+                newState.artworkUrl
             )
         }
         publishState(newState)
