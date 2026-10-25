@@ -46,6 +46,7 @@
     <string name="media_fullscreen">Entrar em tela cheia</string>
     <string name="car_input_use_entered_text">Usar texto digitado</string>
     <string name="media_restoring_position">Restaurando posição da reprodução…</string>
+    <string name="media_resume_open_app">Abra o Motion para retomar a reprodução</string>
     <string name="media_notification_channel_name">Mídia do navegador</string>
     <string name="media_notification_channel_description">Controles de reprodução de áudio e vídeo no navegador.</string>
     <string name="media_browser_now_playing">Reproduzindo no navegador</string>

@@ -76,6 +76,18 @@ internal class BrowserWebMediaController(
     private var youtubeSearchAttempts = 0
     private var pendingYoutubeAutoplayVideoId: String? = null
     private var youtubeAutoplayAttempts = 0
+    private var heldMediaKeyDirection = 0L
+    private var heldMediaKeySeeks = 0
+
+    private val heldMediaKeySeek = object : Runnable {
+        override fun run() {
+            // Cap so a missing ACTION_UP can't seek forever.
+            if (heldMediaKeyDirection == 0L || heldMediaKeySeeks >= MAX_HELD_KEY_SEEKS) return
+            heldMediaKeySeeks++
+            seekBy(heldMediaKeyDirection * BrowserMediaSessionRegistry.FAST_FORWARD_INTERVAL_MS)
+            handler.postDelayed(this, HELD_KEY_SEEK_INTERVAL_MS)
+        }
+    }
 
     private val youtubeSearchAttempt = object : Runnable {
         override fun run() {
@@ -209,7 +221,10 @@ internal class BrowserWebMediaController(
                 webView.url ?: getPageUrl(),
                 mediaState.mediaId,
                 mediaState.positionMs,
-                mediaState.durationMs
+                mediaState.durationMs,
+                mediaState.title,
+                mediaState.artist,
+                mediaState.artworkUrl
             )
         }
         webView.evaluateJavascript(createMonitorScript()) { result ->
@@ -326,9 +341,31 @@ internal class BrowserWebMediaController(
         }
     }
 
-    // On-screen previous/next go through the session like car keys, so tap/hold behave identically.
+    // On-screen previous/next use the same tap/hold handling as car keys, but act on this browser's WebView.
     fun dispatchMediaKey(event: KeyEvent) {
-        if (!isDestroyed) mediaSession.controller.dispatchMediaButtonEvent(event)
+        when (event.keyCode) {
+            KeyEvent.KEYCODE_MEDIA_NEXT -> handleMediaKey(event, 1L)
+            KeyEvent.KEYCODE_MEDIA_PREVIOUS -> handleMediaKey(event, -1L)
+        }
+    }
+
+    // Tap skips, hold seeks. Timed on receipt: head units don't fill repeatCount/downTime/eventTime reliably.
+    internal fun handleMediaKey(event: KeyEvent, direction: Long) {
+        if (isDestroyed) return
+        when (event.action) {
+            KeyEvent.ACTION_DOWN -> if (heldMediaKeyDirection == 0L) {
+                heldMediaKeyDirection = direction
+                heldMediaKeySeeks = 0
+                handler.postDelayed(heldMediaKeySeek, LONG_PRESS_MS)
+            }
+            KeyEvent.ACTION_UP -> {
+                handler.removeCallbacks(heldMediaKeySeek)
+                heldMediaKeyDirection = 0L
+                if (heldMediaKeySeeks == 0 && !event.isCanceled) {
+                    if (direction > 0) skipNext() else skipPrevious()
+                }
+            }
+        }
     }
 
     fun toggleFullscreen() {
@@ -443,7 +480,10 @@ internal class BrowserWebMediaController(
                 pageUrl,
                 newState.mediaId,
                 newState.positionMs,
-                newState.durationMs
+                newState.durationMs,
+                newState.title,
+                newState.artist,
+                newState.artworkUrl
             )
         }
         publishState(newState)
@@ -748,6 +788,9 @@ internal class BrowserWebMediaController(
     private companion object {
         const val MONITOR_INTERVAL_MS = 3_000L
         const val RESTART_INSTEAD_OF_PREVIOUS_SECONDS = 10.0
+        const val LONG_PRESS_MS = 500L
+        const val HELD_KEY_SEEK_INTERVAL_MS = 500L
+        const val MAX_HELD_KEY_SEEKS = 20
         const val MAX_MEDIA_POSITION_RESTORE_ATTEMPTS = 8
         const val MEDIA_POSITION_RESTORE_TOLERANCE_MS = 5_000L
         const val BROWSER_URL_PLACEHOLDER = "__AA_BROWSER_CURRENT_URL__"

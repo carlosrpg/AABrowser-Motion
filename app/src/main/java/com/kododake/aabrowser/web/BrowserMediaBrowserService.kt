@@ -38,6 +38,7 @@ import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import com.kododake.aabrowser.MainActivity
 import com.kododake.aabrowser.R
+import com.kododake.aabrowser.data.BrowserPreferences
 import com.kododake.aabrowser.model.BrowserMediaState
 
 class BrowserMediaBrowserService : MediaBrowserServiceCompat() {
@@ -66,6 +67,14 @@ class BrowserMediaBrowserService : MediaBrowserServiceCompat() {
             Log.w(TAG, "Rejected media browser client: $clientPackageName")
             return null
         }
+        // Media resumption (EXTRA_RECENT): offer the last played item, or nothing if there is none.
+        // Observed on Android Auto (Oct 2026): it never queries this at connect; it picks the startup source
+        // from its own last-used record, and only binds this service once the app's icon is opened.
+        // Kept because it is the documented resumption contract (system media controls, other hosts).
+        if (rootHints?.getBoolean(BrowserRoot.EXTRA_RECENT) == true) {
+            if (nowPlayingItems().isEmpty()) return null
+            return BrowserRoot(RECENT_ROOT_ID, Bundle().apply { putBoolean(BrowserRoot.EXTRA_RECENT, true) })
+        }
         return BrowserRoot(ROOT_ID, null)
     }
 
@@ -89,20 +98,25 @@ class BrowserMediaBrowserService : MediaBrowserServiceCompat() {
             return
         }
 
-        if (parentId != NOW_PLAYING_ID) {
-            result.sendResult(mutableListOf())
-            return
-        }
-
-        val state = BrowserMediaSessionRegistry.currentState()
-        if (!state.isAvailable) {
-            result.sendResult(mutableListOf())
-            return
-        }
-
         result.sendResult(
-            mutableListOf(
-                createPlayableMediaItem(createMediaDescription(state))
+            if (parentId == NOW_PLAYING_ID || parentId == RECENT_ROOT_ID) nowPlayingItems() else mutableListOf()
+        )
+    }
+
+    // The live item when a page is playing, otherwise the last played one saved in the media checkpoint.
+    private fun nowPlayingItems(): MutableList<MediaBrowserCompat.MediaItem> {
+        val state = BrowserMediaSessionRegistry.currentState()
+        if (state.isAvailable) return mutableListOf(createPlayableMediaItem(createMediaDescription(state)))
+        val checkpoint = BrowserPreferences.getMediaCheckpoint(this) ?: return mutableListOf()
+        return mutableListOf(
+            createPlayableMediaItem(
+                MediaDescriptionCompat.Builder()
+                    .setMediaId(checkpoint.mediaId)
+                    .setTitle(checkpoint.title.ifBlank { Uri.parse(checkpoint.pageUrl).host })
+                    .setSubtitle(checkpoint.artist)
+                    .setMediaUri(Uri.parse(checkpoint.pageUrl))
+                    .apply { checkpoint.artworkUrl?.let { setIconUri(Uri.parse(it)) } }
+                    .build()
             )
         )
     }
@@ -316,6 +330,7 @@ class BrowserMediaBrowserService : MediaBrowserServiceCompat() {
     companion object {
         private const val ROOT_ID = "browser_media_root"
         private const val NOW_PLAYING_ID = "browser_media_now_playing"
+        private const val RECENT_ROOT_ID = "browser_media_recent"
         private const val NOTIFICATION_CHANNEL_ID = "browser_media_playback"
         private const val NOTIFICATION_ID = 2048
         private const val REQUEST_OPEN_APP = 2049
