@@ -144,9 +144,8 @@ class BrowserShellController(
                     )
                 },
                 onAddressInputFocusChanged = hostContext::onAddressInputFocusChanged,
-                onMediaPrevious = mediaController::skipPrevious,
+                onMediaKey = mediaController::dispatchMediaKey,
                 onMediaPlayPause = mediaController::togglePlayback,
-                onMediaNext = mediaController::skipNext,
                 onMediaFullscreen = mediaController::toggleFullscreen
             )
         )
@@ -207,6 +206,10 @@ class BrowserShellController(
             BrowserPreferences.getUserAgentProfile(context),
             BrowserPreferences.shouldUseDesktopMode(context)
         )
+        managers.uiManager.applyQuickActionButtonPreferences()
+    }
+
+    fun onConfigurationChanged() {
         managers.uiManager.applyQuickActionButtonPreferences()
     }
 

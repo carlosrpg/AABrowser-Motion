@@ -17,6 +17,7 @@
 
 package com.kododake.aabrowser.ui.controllers
 
+import android.view.KeyEvent
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import com.kododake.aabrowser.model.BrowserMediaState
@@ -63,18 +64,16 @@ class MenuSetupHelper {
 
     fun setupMediaControls(
         composeView: ComposeView,
-        onPrevious: () -> Unit,
-        onPlayPause: () -> Unit,
-        onNext: () -> Unit
+        onMediaKey: (KeyEvent) -> Unit,
+        onPlayPause: () -> Unit
     ) {
         composeView.apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
                 BrowserMediaControls(
                     stateHolder = stateHolder,
-                    onPrevious = onPrevious,
-                    onPlayPause = onPlayPause,
-                    onNext = onNext
+                    onMediaKey = onMediaKey,
+                    onPlayPause = onPlayPause
                 )
             }
         }

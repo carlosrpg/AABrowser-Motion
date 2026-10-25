@@ -19,6 +19,7 @@ package com.kododake.aabrowser.ui
 
 import android.content.Intent
 import android.content.Context
+import android.content.res.Configuration
 import android.net.Uri
 import android.view.View
 import android.view.Window
@@ -165,11 +166,16 @@ class BrowserUIManager(
             position == QuickActionButtonPosition.TOP_LEFT
         val fabIsTop = position == QuickActionButtonPosition.TOP_LEFT ||
             position == QuickActionButtonPosition.TOP_RIGHT
+        // Portrait has no room beside the FAB (it clashes with the media controls), so stack it above/below instead.
+        val isPortrait = context.resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT
+        // Center the 64dp control over the 56dp FAB.
+        val horizontalOffset = if (isPortrait) margin + fabInset - (4 * density).toInt() else adjacentMargin
+        val verticalOffset = if (isPortrait) adjacentMargin else margin + fabInset
         fullscreenControlLayoutParams.setMargins(
-            if (fabIsLeft) adjacentMargin else margin,
-            if (fabIsTop) margin + fabInset else margin,
-            if (fabIsLeft) margin else adjacentMargin,
-            if (fabIsTop) margin else margin + fabInset
+            if (fabIsLeft) horizontalOffset else margin,
+            if (fabIsTop) verticalOffset else margin,
+            if (fabIsLeft) margin else horizontalOffset,
+            if (fabIsTop) margin else verticalOffset
         )
         binding.fullscreenControlComposeView.layoutParams = fullscreenControlLayoutParams
 

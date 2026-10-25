@@ -19,6 +19,7 @@ package com.kododake.aabrowser.ui
 
 import android.content.Context
 import android.net.Uri
+import android.view.KeyEvent
 import android.webkit.WebView
 import android.widget.Toast
 import androidx.core.view.ViewCompat
@@ -77,9 +78,8 @@ class MainActivitySetup(
         val showStartPage: () -> Unit,
         val onDesktopModeChanged: (Boolean) -> Unit,
         val onAddressInputFocusChanged: (Boolean) -> Unit = {},
-        val onMediaPrevious: () -> Unit = {},
+        val onMediaKey: (KeyEvent) -> Unit = {},
         val onMediaPlayPause: () -> Unit = {},
-        val onMediaNext: () -> Unit = {},
         val onMediaFullscreen: () -> Unit = {}
     )
 
@@ -181,9 +181,8 @@ class MainActivitySetup(
         )
         managers.uiManager.menuHelper.setupMediaControls(
             composeView = binding.mediaControlsComposeView,
-            onPrevious = actions.onMediaPrevious,
-            onPlayPause = actions.onMediaPlayPause,
-            onNext = actions.onMediaNext
+            onMediaKey = actions.onMediaKey,
+            onPlayPause = actions.onMediaPlayPause
         )
         managers.uiManager.menuHelper.setupFullscreenControl(
             composeView = binding.fullscreenControlComposeView,

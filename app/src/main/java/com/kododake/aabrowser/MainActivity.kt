@@ -19,6 +19,7 @@ package com.kododake.aabrowser
 
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Bundle
 import android.view.Window
@@ -96,6 +97,12 @@ class MainActivity : AppCompatActivity(), BrowserHostContext {
     override fun onResume() {
         super.onResume()
         browserShell.onResume()
+    }
+
+    // Rotation is handled in place (configChanges), so control positions must be reapplied here.
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        browserShell.onConfigurationChanged()
     }
 
     override fun onPause() {
