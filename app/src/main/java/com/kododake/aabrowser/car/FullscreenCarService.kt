@@ -49,8 +49,14 @@ import com.kododake.aabrowser.R
 
 class FullscreenCarService : CarAppService() {
     override fun onCreateSession(sessionInfo: SessionInfo): Session = object : Session() {
-        override fun onCreateScreen(intent: Intent): Screen =
-            BrowserSurfaceScreen(carContext)
+        override fun onCreateScreen(intent: Intent): Screen {
+            Log.i(TAG, "Launched with ${intent.toUri(Intent.URI_INTENT_SCHEME)} from ${sessionInfo.displayType}")
+            return BrowserSurfaceScreen(carContext)
+        }
+
+        override fun onNewIntent(intent: Intent) {
+            Log.i(TAG, "New intent ${intent.toUri(Intent.URI_INTENT_SCHEME)}")
+        }
     }
 
     override fun createHostValidator(): HostValidator =

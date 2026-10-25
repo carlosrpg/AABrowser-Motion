@@ -19,7 +19,6 @@ package com.kododake.aabrowser.ui.compose.screens.menu
 
 import android.os.SystemClock
 import android.view.KeyEvent
-import android.view.ViewConfiguration
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -65,9 +64,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.kododake.aabrowser.R
 import com.kododake.aabrowser.ui.compose.theme.AABrowserTheme
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 @Composable
 fun BrowserMediaControls(
@@ -188,7 +184,7 @@ private fun MediaControlSlot(
     }
 }
 
-// Emits the same KeyEvent sequence as a hardware media key: DOWN, repeated DOWNs while held, then UP.
+// Emits the same KeyEvent sequence as a hardware media key: DOWN on press, UP on release.
 @Composable
 private fun MediaKeyButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
@@ -224,20 +220,7 @@ private fun MediaKeyButton(
                         interactionSource.emit(press)
                         val downTime = SystemClock.uptimeMillis()
                         currentOnMediaKey(KeyEvent(downTime, downTime, KeyEvent.ACTION_DOWN, keyCode, 0))
-                        val released = coroutineScope {
-                            val repeater = launch {
-                                delay(ViewConfiguration.getLongPressTimeout().toLong())
-                                var repeatCount = 1
-                                while (true) {
-                                    val now = SystemClock.uptimeMillis()
-                                    currentOnMediaKey(
-                                        KeyEvent(downTime, now, KeyEvent.ACTION_DOWN, keyCode, repeatCount++)
-                                    )
-                                    delay(ViewConfiguration.getKeyRepeatDelay().toLong())
-                                }
-                            }
-                            tryAwaitRelease().also { repeater.cancel() }
-                        }
+                        val released = tryAwaitRelease()
                         val upTime = SystemClock.uptimeMillis()
                         val flags = if (released) 0 else KeyEvent.FLAG_CANCELED
                         currentOnMediaKey(
