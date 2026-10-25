@@ -13,7 +13,7 @@
 - Fix next/previous taps being treated as long presses (always seeking), and on-screen buttons acting on the other browser when the phone and car browsers are both open.
 - Fix holding an on-screen next/previous button continuing to seek after release.
 - In portrait, show the fullscreen control above the menu button, at the same size as the media controls.
-- CI now versions the app with semantic versioning: each main build bumps only the PATCH of the latest `vX.Y.Z` tag and publishes a `vX.Y.Z` release; major/minor bumps are made by pushing a `vX.Y.Z` tag manually, which builds and releases that exact version. The version code is derived from the version.
+- CI now versions the app with semantic versioning: each main build bumps only the PATCH of the latest `vX.Y.Z` tag and publishes a `vX.Y.Z` release; major/minor bumps are made by pushing a `vX.Y.Z` tag manually, which builds and releases that exact version. The version code is derived from the version. Local builds use the next patch after the latest tag with a `-dev` suffix, so they install over CI builds (same signing key).
 - Rebranded the fork as AA Browser Motion, maintained by carlosrpg.
 - Added automated main-branch APK prereleases through GitHub Actions.
 - Added a startup safety notice with a persistent "Don't show again" option.
