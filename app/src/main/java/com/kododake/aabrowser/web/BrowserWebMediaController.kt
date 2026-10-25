@@ -28,6 +28,7 @@ import android.os.Looper
 import android.os.SystemClock
 import android.provider.MediaStore
 import android.util.Log
+import android.view.KeyEvent
 import android.webkit.WebView
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
@@ -293,7 +294,8 @@ internal class BrowserWebMediaController(
 
     internal fun seekBy(deltaMs: Long) {
         if (!mediaState.canSeek) return
-        seekToPosition((mediaState.positionMs + deltaMs).coerceIn(0L, mediaState.durationMs))
+        // Relative to the live position: mediaState.positionMs is up to one poll stale, which breaks repeated seeks.
+        execute(SEEK_BY_SCRIPT.replace("__AA_BROWSER_SEEK_DELTA__", (deltaMs / 1_000.0).toString()))
     }
 
     private fun seekToPosition(positionMs: Long) {
@@ -324,11 +326,28 @@ internal class BrowserWebMediaController(
         }
     }
 
+    // On-screen previous/next go through the session like car keys, so tap/hold behave identically.
+    fun dispatchMediaKey(event: KeyEvent) {
+        if (!isDestroyed) mediaSession.controller.dispatchMediaButtonEvent(event)
+    }
+
     fun toggleFullscreen() {
         execute(FULLSCREEN_SCRIPT)
     }
 
     fun skipPrevious() {
+        val webView = getWebView()
+        if (isDestroyed || webView == null || !mediaState.canSeek) {
+            skipToPreviousTrack()
+            return
+        }
+        webView.evaluateJavascript(CURRENT_POSITION_SCRIPT) { result ->
+            val positionSeconds = result?.toDoubleOrNull() ?: 0.0
+            if (positionSeconds > RESTART_INSTEAD_OF_PREVIOUS_SECONDS) seekToPosition(0L) else skipToPreviousTrack()
+        }
+    }
+
+    private fun skipToPreviousTrack() {
         when {
             isYouTubePage() && mediaState.canSkipPrevious -> execute(YOUTUBE_PREVIOUS_SCRIPT)
             isYouTubePage() && isYouTubePlaylist ->
@@ -728,6 +747,7 @@ internal class BrowserWebMediaController(
 
     private companion object {
         const val MONITOR_INTERVAL_MS = 3_000L
+        const val RESTART_INSTEAD_OF_PREVIOUS_SECONDS = 10.0
         const val MAX_MEDIA_POSITION_RESTORE_ATTEMPTS = 8
         const val MEDIA_POSITION_RESTORE_TOLERANCE_MS = 5_000L
         const val BROWSER_URL_PLACEHOLDER = "__AA_BROWSER_CURRENT_URL__"
@@ -1029,6 +1049,32 @@ internal class BrowserWebMediaController(
               if (!media) return false;
               media.currentTime = Math.min(seconds, media.duration);
               return true;
+            })();
+        """
+
+        val CURRENT_POSITION_SCRIPT = """
+            (function() {
+              const player = document.getElementById("movie_player");
+              if (player && typeof player.getCurrentTime === "function") return player.getCurrentTime();
+              const media = Array.from(document.querySelectorAll("video,audio"))
+                .find(item => !item.error && !item.paused) ||
+                document.querySelector("video,audio");
+              return media ? media.currentTime : 0;
+            })();
+        """.trimIndent()
+
+        const val SEEK_BY_SCRIPT = """
+            (function() {
+              const delta = __AA_BROWSER_SEEK_DELTA__;
+              const player = document.getElementById("movie_player");
+              if (player && typeof player.seekTo === "function" &&
+                  typeof player.getCurrentTime === "function") {
+                player.seekTo(Math.max(0, player.getCurrentTime() + delta), true);
+                return;
+              }
+              const media = Array.from(document.querySelectorAll("video,audio"))
+                .find(item => !item.error && Number.isFinite(item.duration));
+              if (media) media.currentTime = Math.min(Math.max(0, media.currentTime + delta), media.duration);
             })();
         """
 

@@ -46,7 +46,13 @@ object BrowserTabFactory {
         onOpenUriExternally: (Uri) -> Unit,
         onShowMenuButtonTemporarily: () -> Unit
     ): BrowserTab {
-        val tabView = android.webkit.WebView(context).apply {
+        val tabView = object : android.webkit.WebView(context) {
+            // Chromium pauses video once the window is hidden; keep it "visible" so media plays in the background.
+            // Idle pages are still paused via WebView.onPause() in BrowserShellController.onPause().
+            override fun onWindowVisibilityChanged(visibility: Int) {
+                if (visibility != View.GONE) super.onWindowVisibilityChanged(View.VISIBLE)
+            }
+        }.apply {
             layoutParams = FrameLayout.LayoutParams(-1, -1)
             overScrollMode = View.OVER_SCROLL_NEVER
             visibility = View.GONE

@@ -28,6 +28,37 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      # Next version = latest vX.Y.Z tag bumped by the commits since it:
+      # "[major]", "BREAKING CHANGE" or "type!:" -> major; "[minor]" or "feat:" -> minor; otherwise patch.
+      - name: Compute semantic version
+        run: |
+          LAST_TAG="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1 || true)"
+          if [ -n "$LAST_TAG" ]; then
+            IFS=. read -r MAJOR MINOR PATCH <<< "${LAST_TAG#v}"
+            COMMITS="$(git log --format=%B "$LAST_TAG..HEAD")"
+          else
+            MAJOR=1 MINOR=0 PATCH=0
+            COMMITS="$(git log --format=%B)"
+          fi
+          if grep -qE '\[major\]|BREAKING CHANGE|^[a-z]+(\([^)]*\))?!:' <<< "$COMMITS"; then
+            MAJOR=$((MAJOR + 1)) MINOR=0 PATCH=0
+          elif grep -qE '\[minor\]|^feat(\([^)]*\))?:' <<< "$COMMITS"; then
+            MINOR=$((MINOR + 1)) PATCH=0
+          else
+            PATCH=$((PATCH + 1))
+          fi
+          VERSION="$MAJOR.$MINOR.$PATCH"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            VERSION="$VERSION-pr.${{ github.event.pull_request.number }}.${{ github.run_number }}"
+          fi
+          echo "Building version $VERSION (previous tag: ${LAST_TAG:-none})"
+          {
+            echo "APP_VERSION=$VERSION"
+            echo "ORG_GRADLE_PROJECT_appVersionName=$VERSION"
+          } >> "$GITHUB_ENV"
 
       - name: Set up Java 21
         uses: actions/setup-java@v5
@@ -92,19 +123,18 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Motion-main-${{ github.run_number }}
+          name: Motion-${{ env.APP_VERSION }}
           path: app/build/renamedApks/release/*.apk
           if-no-files-found: error
 
-      - name: Create GitHub prerelease
+      - name: Create GitHub release
         if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: main-${{ github.run_number }}
+          RELEASE_TAG: v${{ env.APP_VERSION }}
         run: >-
           gh release create "$RELEASE_TAG"
           app/build/renamedApks/release/*.apk
           --target "$GITHUB_SHA"
-          --title "Motion main build #${{ github.run_number }}"
-          --notes "Automated signed release APK from main at commit $GITHUB_SHA."
-          --prerelease
+          --title "Motion $RELEASE_TAG"
+          --generate-notes

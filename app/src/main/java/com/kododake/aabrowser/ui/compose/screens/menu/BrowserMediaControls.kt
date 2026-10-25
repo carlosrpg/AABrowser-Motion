@@ -17,12 +17,19 @@
 
 package com.kododake.aabrowser.ui.compose.screens.menu
 
+import android.os.SystemClock
+import android.view.KeyEvent
+import android.view.ViewConfiguration
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -41,21 +48,32 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.kododake.aabrowser.R
 import com.kododake.aabrowser.ui.compose.theme.AABrowserTheme
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun BrowserMediaControls(
     stateHolder: MenuStateHolder,
-    onPrevious: () -> Unit,
-    onPlayPause: () -> Unit,
-    onNext: () -> Unit
+    onMediaKey: (KeyEvent) -> Unit,
+    onPlayPause: () -> Unit
 ) {
     AABrowserTheme {
         AnimatedVisibility(
@@ -76,7 +94,8 @@ fun BrowserMediaControls(
                     visible = stateHolder.mediaState.canSkipPrevious,
                     icon = Icons.Rounded.SkipPrevious,
                     description = stringResource(R.string.media_previous),
-                    onClick = onPrevious
+                    keyCode = KeyEvent.KEYCODE_MEDIA_PREVIOUS,
+                    onMediaKey = onMediaKey
                 )
                 MediaControlButton(
                     icon = if (stateHolder.mediaState.isPlaying) {
@@ -93,7 +112,8 @@ fun BrowserMediaControls(
                     visible = stateHolder.mediaState.canSkipNext,
                     icon = Icons.Rounded.SkipNext,
                     description = stringResource(R.string.media_next),
-                    onClick = onNext
+                    keyCode = KeyEvent.KEYCODE_MEDIA_NEXT,
+                    onMediaKey = onMediaKey
                 )
             }
         }
@@ -115,9 +135,7 @@ fun BrowserFullscreenControl(
             MediaControlButton(
                 icon = Icons.Rounded.Fullscreen,
                 description = stringResource(R.string.media_fullscreen),
-                onClick = onClick,
-                size = 56.dp,
-                iconSize = 26.dp
+                onClick = onClick
             )
         }
     }
@@ -152,17 +170,90 @@ private fun MediaControlSlot(
     visible: Boolean,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     description: String,
-    onClick: () -> Unit
+    keyCode: Int,
+    onMediaKey: (KeyEvent) -> Unit
 ) {
     Box(
         modifier = Modifier.size(64.dp),
         contentAlignment = Alignment.Center
     ) {
         if (visible) {
-            MediaControlButton(
+            MediaKeyButton(
                 icon = icon,
                 description = description,
-                onClick = onClick
+                keyCode = keyCode,
+                onMediaKey = onMediaKey
+            )
+        }
+    }
+}
+
+// Emits the same KeyEvent sequence as a hardware media key: DOWN, repeated DOWNs while held, then UP.
+@Composable
+private fun MediaKeyButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    description: String,
+    keyCode: Int,
+    onMediaKey: (KeyEvent) -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val currentOnMediaKey by rememberUpdatedState(onMediaKey)
+    Surface(
+        modifier = Modifier.size(64.dp),
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        tonalElevation = 2.dp
+    ) {
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .indication(interactionSource, ripple())
+                .semantics {
+                    role = Role.Button
+                    onClick {
+                        val now = SystemClock.uptimeMillis()
+                        currentOnMediaKey(KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode, 0))
+                        currentOnMediaKey(KeyEvent(now, now, KeyEvent.ACTION_UP, keyCode, 0))
+                        true
+                    }
+                }
+                .pointerInput(keyCode) {
+                    detectTapGestures(onPress = { offset ->
+                        val press = PressInteraction.Press(offset)
+                        interactionSource.emit(press)
+                        val downTime = SystemClock.uptimeMillis()
+                        currentOnMediaKey(KeyEvent(downTime, downTime, KeyEvent.ACTION_DOWN, keyCode, 0))
+                        val released = coroutineScope {
+                            val repeater = launch {
+                                delay(ViewConfiguration.getLongPressTimeout().toLong())
+                                var repeatCount = 1
+                                while (true) {
+                                    val now = SystemClock.uptimeMillis()
+                                    currentOnMediaKey(
+                                        KeyEvent(downTime, now, KeyEvent.ACTION_DOWN, keyCode, repeatCount++)
+                                    )
+                                    delay(ViewConfiguration.getKeyRepeatDelay().toLong())
+                                }
+                            }
+                            tryAwaitRelease().also { repeater.cancel() }
+                        }
+                        val upTime = SystemClock.uptimeMillis()
+                        val flags = if (released) 0 else KeyEvent.FLAG_CANCELED
+                        currentOnMediaKey(
+                            KeyEvent(downTime, upTime, KeyEvent.ACTION_UP, keyCode, 0, 0, -1, 0, flags)
+                        )
+                        interactionSource.emit(
+                            if (released) PressInteraction.Release(press) else PressInteraction.Cancel(press)
+                        )
+                    })
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                icon,
+                contentDescription = description,
+                modifier = Modifier.size(32.dp)
             )
         }
     }

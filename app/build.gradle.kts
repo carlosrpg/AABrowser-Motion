@@ -18,8 +18,13 @@ android {
         applicationId = "com.carlosrpg.aabrowser"
         minSdk = 35
         targetSdk = 37
-        versionCode = 10
-        versionName = "1.0.0.1"
+        // CI passes -PappVersionName=X.Y.Z[-suffix]; versionCode is derived so it always grows with the version.
+        val appVersionName = (findProperty("appVersionName") as String?) ?: "1.0.0-dev"
+        val semver = appVersionName.substringBefore('-').split('.').mapNotNull(String::toIntOrNull)
+        require(semver.size == 3) { "appVersionName must be MAJOR.MINOR.PATCH, got '$appVersionName'" }
+        val (major, minor, patch) = semver
+        versionCode = major * 1_000_000 + minor * 1_000 + patch
+        versionName = appVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
