@@ -979,8 +979,14 @@ internal class BrowserWebMediaController(
             })();
         """.trimIndent()
 
+        // Player API first: on mobile YouTube a synthetic click on a hidden control only reveals the overlay.
         val YOUTUBE_PREVIOUS_SCRIPT = """
             (function() {
+              const player = document.getElementById("movie_player");
+              if (player && typeof player.previousVideo === "function") {
+                player.previousVideo();
+                return;
+              }
               const button = document.querySelector(".ytp-prev-button");
               if (button) {
                 button.click();
@@ -993,6 +999,11 @@ internal class BrowserWebMediaController(
 
         val YOUTUBE_NEXT_SCRIPT = """
             (function() {
+              const player = document.getElementById("movie_player");
+              if (player && typeof player.nextVideo === "function") {
+                player.nextVideo();
+                return;
+              }
               const button = document.querySelector(".ytp-next-button");
               if (button) {
                 button.click();
@@ -1005,6 +1016,11 @@ internal class BrowserWebMediaController(
 
         val YOUTUBE_PLAYLIST_NEXT_SCRIPT = """
             (function() {
+              const player = document.getElementById("movie_player");
+              if (player && typeof player.nextVideo === "function") {
+                player.nextVideo();
+                return;
+              }
               const controls = document.querySelectorAll(".player-middle-controls-prev-next-button");
               const button = controls[1];
               if (button && !button.disabled &&
@@ -1017,6 +1033,11 @@ internal class BrowserWebMediaController(
 
         val YOUTUBE_PLAYLIST_PREVIOUS_SCRIPT = """
             (function() {
+              const player = document.getElementById("movie_player");
+              if (player && typeof player.previousVideo === "function") {
+                player.previousVideo();
+                return;
+              }
               const controls = document.querySelectorAll(".player-middle-controls-prev-next-button");
               const button = controls[0];
               if (button && !button.disabled &&
