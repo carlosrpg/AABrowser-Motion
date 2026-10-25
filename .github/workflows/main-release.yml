@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
   pull_request:
     branches:
       - main
@@ -31,26 +33,18 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Next version = latest vX.Y.Z tag bumped by the commits since it:
-      # "[major]", "BREAKING CHANGE" or "type!:" -> major; "[minor]" or "feat:" -> minor; otherwise patch.
+      # Main builds bump only PATCH of the latest vX.Y.Z tag. Major/minor are set by pushing a vX.Y.Z tag
+      # manually, which builds and releases exactly that version.
       - name: Compute semantic version
         run: |
-          LAST_TAG="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1 || true)"
-          if [ -n "$LAST_TAG" ]; then
-            IFS=. read -r MAJOR MINOR PATCH <<< "${LAST_TAG#v}"
-            COMMITS="$(git log --format=%B "$LAST_TAG..HEAD")"
+          if [[ "$GITHUB_REF" =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            LAST_TAG="${GITHUB_REF#refs/tags/}"
+            VERSION="${LAST_TAG#v}"
           else
-            MAJOR=1 MINOR=0 PATCH=0
-            COMMITS="$(git log --format=%B)"
+            LAST_TAG="$(git tag --list 'v*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1 || true)"
+            IFS=. read -r MAJOR MINOR PATCH <<< "${LAST_TAG:-v1.0.0}"
+            VERSION="${MAJOR#v}.$MINOR.$((PATCH + 1))"
           fi
-          if grep -qE '\[major\]|BREAKING CHANGE|^[a-z]+(\([^)]*\))?!:' <<< "$COMMITS"; then
-            MAJOR=$((MAJOR + 1)) MINOR=0 PATCH=0
-          elif grep -qE '\[minor\]|^feat(\([^)]*\))?:' <<< "$COMMITS"; then
-            MINOR=$((MINOR + 1)) PATCH=0
-          else
-            PATCH=$((PATCH + 1))
-          fi
-          VERSION="$MAJOR.$MINOR.$PATCH"
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             VERSION="$VERSION-pr.${{ github.event.pull_request.number }}.${{ github.run_number }}"
           fi
