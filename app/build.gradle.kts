@@ -19,7 +19,19 @@ android {
         minSdk = 35
         targetSdk = 37
         // CI passes -PappVersionName=X.Y.Z[-suffix]; versionCode is derived so it always grows with the version.
-        val appVersionName = (findProperty("appVersionName") as String?) ?: "1.0.0-dev"
+        // Local builds mirror CI (next patch after the latest vX.Y.Z tag, "-dev") so they install over CI builds;
+        // both are signed with the same key, and a lower versionCode would be rejected as a downgrade.
+        val appVersionName = (findProperty("appVersionName") as String?) ?: run {
+            val latestTag = runCatching {
+                providers.exec {
+                    commandLine("git", "tag", "--list", "v*", "--sort=-v:refname")
+                    isIgnoreExitValue = true
+                }.standardOutput.asText.get()
+            }.getOrDefault("").lineSequence().map(String::trim)
+                .firstOrNull { Regex("""v\d+\.\d+\.\d+""").matches(it) }
+            val (tagMajor, tagMinor, tagPatch) = (latestTag ?: "v1.0.0").removePrefix("v").split('.').map(String::toInt)
+            "$tagMajor.$tagMinor.${tagPatch + 1}-dev"
+        }
         val semver = appVersionName.substringBefore('-').split('.').mapNotNull(String::toIntOrNull)
         require(semver.size == 3) { "appVersionName must be MAJOR.MINOR.PATCH, got '$appVersionName'" }
         val (major, minor, patch) = semver
