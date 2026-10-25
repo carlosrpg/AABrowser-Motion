@@ -220,15 +220,21 @@ private fun MediaKeyButton(
                         interactionSource.emit(press)
                         val downTime = SystemClock.uptimeMillis()
                         currentOnMediaKey(KeyEvent(downTime, downTime, KeyEvent.ACTION_DOWN, keyCode, 0))
-                        val released = tryAwaitRelease()
-                        val upTime = SystemClock.uptimeMillis()
-                        val flags = if (released) 0 else KeyEvent.FLAG_CANCELED
-                        currentOnMediaKey(
-                            KeyEvent(downTime, upTime, KeyEvent.ACTION_UP, keyCode, 0, 0, -1, 0, flags)
-                        )
-                        interactionSource.emit(
-                            if (released) PressInteraction.Release(press) else PressInteraction.Cancel(press)
-                        )
+                        var released = false
+                        // finally: the button can leave composition mid-hold (controls auto-hide, YouTube
+                        // next/previous availability flickering while seeking); without UP the held seek never stops.
+                        try {
+                            released = tryAwaitRelease()
+                        } finally {
+                            val upTime = SystemClock.uptimeMillis()
+                            val flags = if (released) 0 else KeyEvent.FLAG_CANCELED
+                            currentOnMediaKey(
+                                KeyEvent(downTime, upTime, KeyEvent.ACTION_UP, keyCode, 0, 0, -1, 0, flags)
+                            )
+                            interactionSource.tryEmit(
+                                if (released) PressInteraction.Release(press) else PressInteraction.Cancel(press)
+                            )
+                        }
                     })
                 },
             contentAlignment = Alignment.Center

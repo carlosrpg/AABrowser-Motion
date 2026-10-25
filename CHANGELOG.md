@@ -11,6 +11,7 @@
 - Long-pressing next/previous (car keys and on-screen buttons) seeks forward/backward; a tap still skips.
 - Add media resumption support: the last played page is offered as a resumable item and playing it reopens the browser. Android Auto does not currently use this to pick its startup media source.
 - Fix next/previous taps being treated as long presses (always seeking), and on-screen buttons acting on the other browser when the phone and car browsers are both open.
+- Fix holding an on-screen next/previous button continuing to seek after release.
 - In portrait, show the fullscreen control above the menu button, at the same size as the media controls.
 - CI now versions the app with semantic versioning: each main build bumps only the PATCH of the latest `vX.Y.Z` tag and publishes a `vX.Y.Z` release; major/minor bumps are made by pushing a `vX.Y.Z` tag manually, which builds and releases that exact version. The version code is derived from the version.
 - Rebranded the fork as AA Browser Motion, maintained by carlosrpg.
