@@ -39,6 +39,7 @@ import androidx.car.app.SurfaceContainer
 import androidx.car.app.model.Action
 import androidx.car.app.model.ActionStrip
 import androidx.car.app.model.ItemList
+import androidx.car.app.model.MessageTemplate
 import androidx.car.app.model.Row
 import androidx.car.app.model.SearchTemplate
 import androidx.car.app.model.Template
@@ -50,25 +51,34 @@ import com.kododake.aabrowser.R
 
 class FullscreenCarService : CarAppService() {
     override fun onCreateSession(sessionInfo: SessionInfo): Session = object : Session() {
-        override fun onCreateScreen(intent: Intent): Screen {
-            openSplitScreenIfMediaLaunch(intent)
-            return BrowserSurfaceScreen(carContext)
-        }
+        override fun onCreateScreen(intent: Intent): Screen =
+            if (openSplitScreenIfMediaLaunch(intent)) {
+                // Placeholder so no fullscreen browser is built while this app closes.
+                object : Screen(carContext) {
+                    override fun onGetTemplate(): Template =
+                        MessageTemplate.Builder(carContext.getString(R.string.split_screen_app_name)).build()
+                }
+            } else {
+                BrowserSurfaceScreen(carContext)
+            }
 
         override fun onNewIntent(intent: Intent) {
             openSplitScreenIfMediaLaunch(intent)
         }
 
-        // Android Auto's media card opens the first car app of the package (this one); prefer the split view.
-        private fun openSplitScreenIfMediaLaunch(intent: Intent) {
-            if (intent.action != ACTION_MEDIA_SHOW_PLAYBACK_VIEW) return
-            try {
+        // Android Auto's media card opens the first car app of the package (this one); hand off to the split view.
+        private fun openSplitScreenIfMediaLaunch(intent: Intent): Boolean {
+            if (intent.action != ACTION_MEDIA_SHOW_PLAYBACK_VIEW) return false
+            return try {
                 carContext.startCarApp(
                     Intent(Intent.ACTION_MAIN)
                         .setComponent(ComponentName(carContext, SplitScreenProjectionService::class.java))
                 )
+                carContext.finishCarApp()
+                true
             } catch (error: RuntimeException) {
                 Log.w(TAG, "Could not open the split-screen browser from the media card", error)
+                false
             }
         }
     }
