@@ -17,6 +17,7 @@
 
 package com.kododake.aabrowser.car
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Rect
@@ -50,12 +51,25 @@ import com.kododake.aabrowser.R
 class FullscreenCarService : CarAppService() {
     override fun onCreateSession(sessionInfo: SessionInfo): Session = object : Session() {
         override fun onCreateScreen(intent: Intent): Screen {
-            Log.i(TAG, "Launched with ${intent.toUri(Intent.URI_INTENT_SCHEME)} from ${sessionInfo.displayType}")
+            openSplitScreenIfMediaLaunch(intent)
             return BrowserSurfaceScreen(carContext)
         }
 
         override fun onNewIntent(intent: Intent) {
-            Log.i(TAG, "New intent ${intent.toUri(Intent.URI_INTENT_SCHEME)}")
+            openSplitScreenIfMediaLaunch(intent)
+        }
+
+        // Android Auto's media card opens the first car app of the package (this one); prefer the split view.
+        private fun openSplitScreenIfMediaLaunch(intent: Intent) {
+            if (intent.action != ACTION_MEDIA_SHOW_PLAYBACK_VIEW) return
+            try {
+                carContext.startCarApp(
+                    Intent(Intent.ACTION_MAIN)
+                        .setComponent(ComponentName(carContext, SplitScreenProjectionService::class.java))
+                )
+            } catch (error: RuntimeException) {
+                Log.w(TAG, "Could not open the split-screen browser from the media card", error)
+            }
         }
     }
 
@@ -334,5 +348,6 @@ class FullscreenCarService : CarAppService() {
 
     private companion object {
         const val TAG = "FullscreenCarService"
+        const val ACTION_MEDIA_SHOW_PLAYBACK_VIEW = "MEDIA_SHOW_PLAYBACK_VIEW"
     }
 }
