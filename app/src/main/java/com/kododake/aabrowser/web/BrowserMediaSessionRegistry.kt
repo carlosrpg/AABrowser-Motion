@@ -205,8 +205,10 @@ internal object BrowserMediaSessionRegistry {
         service?.updateForState(BrowserMediaState.None)
     }
 
-    // With no browser open, expose the last played item as paused so Android Auto can offer to resume it.
+    // With no browser open, expose the last played item as paused so a media host can offer to resume it.
     // The session stays inactive so it doesn't take media buttons from other players.
+    // Note: Android Auto does not use this to choose its startup source (see BrowserMediaBrowserService.onGetRoot);
+    // it is kept as standard resumption support.
     private fun publishResumableState(session: MediaSessionCompat) {
         val checkpoint = appContext?.let(BrowserPreferences::getMediaCheckpoint)
         if (checkpoint == null) {

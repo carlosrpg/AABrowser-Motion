@@ -67,7 +67,10 @@ class BrowserMediaBrowserService : MediaBrowserServiceCompat() {
             Log.w(TAG, "Rejected media browser client: $clientPackageName")
             return null
         }
-        // System/Android Auto media resumption: offer the last played item, or nothing if there is none.
+        // Media resumption (EXTRA_RECENT): offer the last played item, or nothing if there is none.
+        // Observed on Android Auto (Oct 2026): it never queries this at connect; it picks the startup source
+        // from its own last-used record, and only binds this service once the app's icon is opened.
+        // Kept because it is the documented resumption contract (system media controls, other hosts).
         if (rootHints?.getBoolean(BrowserRoot.EXTRA_RECENT) == true) {
             if (nowPlayingItems().isEmpty()) return null
             return BrowserRoot(RECENT_ROOT_ID, Bundle().apply { putBoolean(BrowserRoot.EXTRA_RECENT, true) })
