@@ -9,6 +9,7 @@
 - Keep media playing in the background when the app is not on top, on the phone and in Android Auto.
 - Previous restarts the current video when it is more than 10 seconds in; otherwise it goes to the previous item.
 - Long-pressing next/previous (car keys and on-screen buttons) seeks forward/backward; a tap still skips.
+- Fix next/previous taps being treated as long presses (always seeking), and on-screen buttons acting on the other browser when the phone and car browsers are both open.
 - In portrait, show the fullscreen control above the menu button, at the same size as the media controls.
 - CI now versions the app with semantic versioning: each main build bumps only the PATCH of the latest `vX.Y.Z` tag and publishes a `vX.Y.Z` release; major/minor bumps are made by pushing a `vX.Y.Z` tag manually, which builds and releases that exact version. The version code is derived from the version.
 - Rebranded the fork as AA Browser Motion, maintained by carlosrpg.
