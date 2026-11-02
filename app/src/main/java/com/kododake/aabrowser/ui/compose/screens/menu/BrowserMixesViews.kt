@@ -245,7 +245,10 @@ private fun MixThumbnail(url: String, modifier: Modifier) {
     val bitmap by produceState(thumbnailCache.get(url), url) {
         if (value == null) {
             value = withContext(Dispatchers.IO) {
-                runCatching { URL(url).openStream().use(BitmapFactory::decodeStream) }.getOrNull()
+                runCatching {
+                    val connection = URL(url).openConnection().apply { connectTimeout = 5_000; readTimeout = 5_000 }
+                    connection.getInputStream().use(BitmapFactory::decodeStream)
+                }.getOrNull()
                     ?.also { thumbnailCache.put(url, it) }
             }
         }

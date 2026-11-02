@@ -422,6 +422,8 @@ internal class BrowserWebMediaController(
                     if (isDestroyed || requestId != mixesRequestId) return@evaluateJavascript
                     if (result == null || result == "null") {
                         // The document changed under us (navigation or tab switch): start over on this page.
+                        // Before this, tapping a video mid-enumeration meant a silent 60 s wait, an empty result
+                        // and a 2 min backoff, so the list only ever appeared once a video had played to the end.
                         if (++restarts > MAX_MIXES_RESTARTS) {
                             Log.i(TAG, "YouTube mixes: page kept changing, giving up for now")
                             onResult(emptyList())
@@ -903,8 +905,12 @@ internal class BrowserWebMediaController(
         const val YOUTUBE_SEARCH_URL = "https://www.youtube.com/results"
         const val YOUTUBE_WATCH_URL = "https://www.youtube.com/watch"
         const val YOUTUBE_VIDEO_FILTER = "EgIQAQ=="
+        // 60 s: the chip paging plus seed-video lookups took longer than 15 s on a mobile connection and the
+        // whole run was being discarded.
         const val MAX_MIXES_READ_ATTEMPTS = 120
         const val MAX_MIXES_RESTARTS = 8
+        // Observed: three clicks in a row ignored right after a return, the player still coming up; a tenth
+        // poll (30 s) has always been enough.
         const val MAX_PENDING_FULLSCREEN_ATTEMPTS = 10
         const val MIXES_READ_INTERVAL_MS = 500L
         val YOUTUBE_VIDEO_ID_REGEX = Regex("[A-Za-z0-9_-]{11}")
@@ -1253,6 +1259,8 @@ internal class BrowserWebMediaController(
                     (isPlaylist && isEnabled(controls[0]))
                   : isPlaylist ? isEnabled(controls[0]) :
                     typeof bridge.previous === "function",
+                // The mobile site keeps an idle player (and its fullscreen button) in the DOM on the home page;
+                // only a loaded video (duration known) gets the maximize control.
                 hasFullscreenButton: !!fullscreenButton && duration > 0
               });
             })()

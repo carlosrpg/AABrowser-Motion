@@ -166,6 +166,9 @@ internal object BrowserMediaSessionRegistry {
         synchronized(this) {
             if (activeController !== controller) {
                 // Another shell (phone or car) owns the session; the one that is playing takes it over.
+                // "Most recent shell wins" alone broke the phone: Android Auto re-binds the car service after
+                // every install or process restart, so the car shell was created last and swallowed the phone's
+                // updates, leaving YouTube Music as the system's current media app.
                 if (!state.isPlaying) return
                 activeController = controller
             }

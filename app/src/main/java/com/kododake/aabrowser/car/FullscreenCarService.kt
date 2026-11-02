@@ -187,7 +187,9 @@ class FullscreenCarService : CarAppService() {
 
         // The host drops the surface when the head unit hides Android Auto (its native UI takes video
         // focus). Tearing the presentation down here is what stopped playback: media apps keep playing
-        // through that, so keep the browser parked off-screen while media is playing.
+        // through that, so keep the browser parked off-screen while media is playing. Not yet exercised on a
+        // DHU or in a car: the split-screen entry survived the DHU "focus video off" test on its own, and the
+        // car report that started this has not been reproduced.
         override fun onSurfaceDestroyed(surfaceContainer: SurfaceContainer) {
             Log.i(TAG, "onSurfaceDestroyed playing=${presentation?.isMediaPlaying()}")
             if (virtualDisplay == null || presentation?.isMediaPlaying() != true) {

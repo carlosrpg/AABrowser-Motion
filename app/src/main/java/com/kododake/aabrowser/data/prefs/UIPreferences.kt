@@ -36,6 +36,7 @@ object UIPreferences {
 
     const val MIN_SHEET_DRAG_ALPHA_PERCENT = 10
     const val MAX_SHEET_DRAG_ALPHA_PERCENT = 100
+    // Opacity, not transparency: 20% keeps the controls barely visible while the page is dragged.
     const val DEFAULT_SHEET_DRAG_ALPHA_PERCENT = 20
 
     /** Opacity (percent) of a bottom sheet while the user is dragging it. */

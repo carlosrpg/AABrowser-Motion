@@ -100,8 +100,7 @@ class FullscreenController(
         onRestoreView: () -> Unit
     ) {
         if (customView == null) return
-        // Stack trace on purpose: tells whether Chromium or our own code ended fullscreen.
-        Log.i(TAG, "exitFullscreen fromWebChrome=$fromWebChrome", Throwable())
+        Log.i(TAG, "exitFullscreen fromWebChrome=$fromWebChrome")
 
         binding.fullscreenContainer.apply {
             removeAllViews()
@@ -139,7 +138,10 @@ class FullscreenController(
         }
 
         // Chromium's fullscreen view pauses the page when its window hides (car tile left for the map, app in
-        // the background); keep it "visible" exactly like the WebView subclass does.
+        // the background); keep it "visible" exactly like the WebView subclass does. Seen on the DHU: the
+        // split-screen host's onStop hid the window, the page paused a second later and Chromium then exited
+        // fullscreen on its own. Leaving fullscreen in onPause and re-maximizing on resume was tried first and
+        // rejected: the synthesized fullscreen click is ignored by the player more often than not.
         override fun dispatchWindowVisibilityChanged(visibility: Int) {
             if (visibility != View.GONE) super.dispatchWindowVisibilityChanged(View.VISIBLE)
         }

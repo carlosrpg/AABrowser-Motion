@@ -369,7 +369,9 @@ class BrowserShellController(
         refreshMixesIfStale()
     }
 
-    // Runs on every media poll of a YouTube page, so the list is ready before the tab is tapped.
+    // Runs on every media poll of a YouTube page, so the list is ready before the tab is tapped. An empty
+    // result retries after 2 min (a page can be polled before it is signed in or fully loaded); a found list
+    // is refreshed every 15 min. The script itself does no network work when the page is signed out.
     private fun refreshMixesIfStale() {
         val state = managers.uiManager.menuHelper.stateHolder
         if (state.isMixesLoading) return

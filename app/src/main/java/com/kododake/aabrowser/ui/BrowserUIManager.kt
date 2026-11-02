@@ -292,8 +292,13 @@ class BrowserUIManager(
 
     fun showMenuButtonTemporarily() = callbacks.showMenuButtonTemporarily()
 
+    private var controlsDragging = false
+
     // Fades the floating controls while the finger drags the page so the content under them stays visible.
+    // Called for every MOVE event, so only act on a change (six view animations per event otherwise).
     fun setControlsDragging(dragging: Boolean) {
+        if (controlsDragging == dragging) return
+        controlsDragging = dragging
         val alpha = if (dragging) BrowserPreferences.getSheetDragAlphaPercent(context) / 100f else 1f
         listOf(
             binding.fabComposeView, binding.hideUiComposeView, binding.mixesTabComposeView,
