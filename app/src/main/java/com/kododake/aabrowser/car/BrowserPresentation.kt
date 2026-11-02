@@ -100,6 +100,8 @@ internal class BrowserPresentation(
         projectedKeyboardController?.dismissExternalInput(session)
     }
 
+    fun isMediaPlaying(): Boolean = browserShell?.isMediaPlaying() == true
+
     override fun onCreate(savedInstanceState: Bundle?) {
         savedStateController.performAttach()
         savedStateController.performRestore(savedInstanceState)

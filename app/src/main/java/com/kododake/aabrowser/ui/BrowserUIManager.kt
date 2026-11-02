@@ -118,7 +118,7 @@ class BrowserUIManager(
         )
     }
 
-    private fun hideFullscreenMediaControls() {
+    fun hideFullscreenMediaControls() {
         binding.root.removeCallbacks(hideFullscreenMediaControlsRunnable)
         menuHelper.hideFullscreenMediaControls()
     }
@@ -155,6 +155,12 @@ class BrowserUIManager(
         }
         layoutParams.setMargins(margin, margin, margin, margin)
         binding.fabComposeView.layoutParams = layoutParams
+
+        // The eye lives top-left unless the FAB is already there.
+        (binding.hideUiComposeView.layoutParams as CoordinatorLayout.LayoutParams).gravity =
+            android.view.Gravity.TOP or
+                if (position == QuickActionButtonPosition.TOP_LEFT) android.view.Gravity.END else android.view.Gravity.START
+        binding.hideUiComposeView.requestLayout()
 
         val fullscreenControlLayoutParams =
             binding.fullscreenControlComposeView.layoutParams as CoordinatorLayout.LayoutParams

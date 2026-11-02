@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.kododake.aabrowser.model.BrowserMediaState
+import com.kododake.aabrowser.model.YouTubeMix
 
 /**
  * Observable UI state holder for the Compose browser menu sheet.
@@ -43,6 +44,11 @@ class MenuStateHolder {
     var isMediaRestoreCueVisible by mutableStateOf(false)
     var fabIsAddressBarMode by mutableStateOf(false)
     var mediaState by mutableStateOf(BrowserMediaState.None)
+    var isYouTubePage by mutableStateOf(false)
+    var mixes by mutableStateOf<List<YouTubeMix>>(emptyList())
+    var isMixesLoading by mutableStateOf(false)
+    var isMixesPanelVisible by mutableStateOf(false)
+    var isVoiceSearchListening by mutableStateOf(false)
 
     fun updateNavigationState(
         canBack: Boolean,

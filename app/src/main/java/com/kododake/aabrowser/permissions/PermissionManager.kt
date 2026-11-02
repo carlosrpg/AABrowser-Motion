@@ -145,7 +145,7 @@ class PermissionManager(
         pendingSpeechBridgeTabId = tabId
 
         if (isSecure && BrowserPreferences.isHostAllowedMicrophone(context, host)) {
-            continueSpeechRecognitionMicrophoneAccess(onPermissionResult)
+            requestMicrophoneAccess(onPermissionResult)
             return
         }
 
@@ -159,10 +159,10 @@ class PermissionManager(
         hostDialogs.showMicrophoneAccessDialog(
             origin = pageUri,
             isSecure = isSecure,
-            onAllowOnce = { continueSpeechRecognitionMicrophoneAccess(onPermissionResult) },
+            onAllowOnce = { requestMicrophoneAccess(onPermissionResult) },
             onAllowHost = {
                 host?.let { BrowserPreferences.addAllowedMicrophoneHost(context, it) }
-                continueSpeechRecognitionMicrophoneAccess(onPermissionResult)
+                requestMicrophoneAccess(onPermissionResult)
             },
             onCancel = {
                 onPermissionResult(false)
@@ -171,7 +171,8 @@ class PermissionManager(
         )
     }
 
-    private fun continueSpeechRecognitionMicrophoneAccess(onPermissionResult: (Boolean) -> Unit) {
+    /** Calls back synchronously when already granted or impossible; otherwise the result reaches handleRequestPermissionsResult. */
+    fun requestMicrophoneAccess(onPermissionResult: (Boolean) -> Unit) {
         val hostActivity = activity
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
             onPermissionResult(true)

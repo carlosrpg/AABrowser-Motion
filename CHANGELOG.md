@@ -1,6 +1,12 @@
 # Changelog
 
 ## Unreleased
+- Add an eye button beside the temporary controls that hides the menu button and media controls immediately.
+- Fade bottom sheets while they are being dragged (opacity configurable under In-app controls, default 60%) so the page behind stays visible.
+- Add a Mixes tab on YouTube pages that lists the signed-in user's mixes (thumbnail and title); tapping one plays it and maximizes the player once it is playing.
+- Add a large mic button beside the temporary controls: speak a query to open the YouTube results for it.
+- Remember whether media was playing maximized and restore that together with the playback position.
+- Android Auto (fullscreen entry): keep playing when the head unit hides Android Auto (native car UI in front); the browser is parked off-screen instead of destroyed and reattached when Android Auto returns.
 - Preserve browser media playback when the host loses focus, and save/restore the media position if the page is recreated.
 - Correct YouTube next/previous availability and actions using the player controls, including hiding unavailable actions on Shorts.
 - Add a fullscreen player control for pages with a supported fullscreen button; reveal media controls and the menu FAB on touch during fullscreen playback.

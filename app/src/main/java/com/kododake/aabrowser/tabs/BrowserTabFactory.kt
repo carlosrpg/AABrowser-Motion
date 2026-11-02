@@ -52,6 +52,12 @@ object BrowserTabFactory {
             override fun onWindowVisibilityChanged(visibility: Int) {
                 if (visibility != View.GONE) super.onWindowVisibilityChanged(View.VISIBLE)
             }
+
+            // Detaching hides the page for Chromium (pausing video); logged to diagnose car-host teardowns.
+            override fun onDetachedFromWindow() {
+                android.util.Log.i("BrowserTab", "WebView detached from window: $url")
+                super.onDetachedFromWindow()
+            }
         }.apply {
             layoutParams = FrameLayout.LayoutParams(-1, -1)
             overScrollMode = View.OVER_SCROLL_NEVER

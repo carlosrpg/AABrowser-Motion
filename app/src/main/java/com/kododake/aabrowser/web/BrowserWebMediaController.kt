@@ -35,6 +35,7 @@ import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import com.kododake.aabrowser.data.BrowserPreferences
 import com.kododake.aabrowser.model.BrowserMediaState
+import com.kododake.aabrowser.model.YouTubeMix
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -49,7 +50,8 @@ internal class BrowserWebMediaController(
     private val getPageTitle: () -> String,
     private val getPageUrl: () -> String,
     private val onStateChanged: (BrowserMediaState) -> Unit,
-    private val onMediaPositionRestoreAttempted: () -> Unit = {}
+    private val onMediaPositionRestoreAttempted: () -> Unit = {},
+    private val isFullscreen: () -> Boolean = { false }
 ) {
     internal val applicationContext = context.applicationContext
     private var pendingMediaRestore = BrowserPreferences.getMediaCheckpoint(applicationContext)
@@ -78,6 +80,10 @@ internal class BrowserWebMediaController(
     private var youtubeAutoplayAttempts = 0
     private var heldMediaKeyDirection = 0L
     private var heldMediaKeySeeks = 0
+    // Video id whose player should be sent fullscreen once it is playing (mix tap, or restoring a maximized session).
+    private var pendingFullscreenMediaId: String? = null
+    private var mediaFullscreenRestoreScheduled = false
+    private var mixesRequestId = 0L
 
     private val heldMediaKeySeek = object : Runnable {
         override fun run() {
@@ -224,7 +230,8 @@ internal class BrowserWebMediaController(
                 mediaState.durationMs,
                 mediaState.title,
                 mediaState.artist,
-                mediaState.artworkUrl
+                mediaState.artworkUrl,
+                isFullscreen()
             )
         }
         webView.evaluateJavascript(createMonitorScript()) { result ->
@@ -372,6 +379,53 @@ internal class BrowserWebMediaController(
         execute(FULLSCREEN_SCRIPT)
     }
 
+    /** Opens the mix, starts it, and maximizes the player once it is playing. */
+    fun playYouTubeMix(mix: YouTubeMix) {
+        val webView = getWebView() ?: return
+        pendingYoutubeSearchRequestId = null
+        pendingYoutubeSearchTerms = null
+        handler.removeCallbacks(youtubeSearchAttempt)
+        isYouTubePlaylist = false
+        youtubeNextUrl = null
+        youtubePreviousUrl = null
+        pendingFullscreenMediaId = mix.videoId
+        webView.loadUrl(mix.watchUrl)
+        scheduleYoutubeAutoplay(mix.videoId)
+    }
+
+    /** Enumerates the signed-in user's mixes from the current YouTube page; empty when unavailable. */
+    fun loadYouTubeMixes(onResult: (List<YouTubeMix>) -> Unit) {
+        val webView = getWebView()
+        if (isDestroyed || webView == null || !isYouTubePage()) {
+            onResult(emptyList())
+            return
+        }
+        val requestId = ++mixesRequestId
+        var attempts = 0
+        webView.evaluateJavascript(YOUTUBE_MIXES_START_SCRIPT, null)
+        val read = object : Runnable {
+            override fun run() {
+                if (isDestroyed || requestId != mixesRequestId) return
+                val current = getWebView()
+                if (current == null) {
+                    onResult(emptyList())
+                    return
+                }
+                current.evaluateJavascript(YOUTUBE_MIXES_READ_SCRIPT) { result ->
+                    if (isDestroyed || requestId != mixesRequestId) return@evaluateJavascript
+                    val mixes = YouTubeMixesParser.parse(result)
+                    when {
+                        mixes != null -> onResult(mixes)
+                        ++attempts < MAX_MIXES_READ_ATTEMPTS -> handler.postDelayed(this, MIXES_READ_INTERVAL_MS)
+                        else -> onResult(emptyList())
+                    }
+                }
+            }
+        }
+        handler.postDelayed(read, MIXES_READ_INTERVAL_MS)
+    }
+
+
     fun skipPrevious() {
         val webView = getWebView()
         if (isDestroyed || webView == null || !mediaState.canSeek) {
@@ -483,10 +537,15 @@ internal class BrowserWebMediaController(
                 newState.durationMs,
                 newState.title,
                 newState.artist,
-                newState.artworkUrl
+                newState.artworkUrl,
+                isFullscreen()
             )
         }
         publishState(newState)
+        if (pendingFullscreenMediaId == newState.mediaId && newState.isPlaying && newState.hasFullscreenButton) {
+            pendingFullscreenMediaId = null
+            if (!isFullscreen()) toggleFullscreen()
+        }
         if (newState.isPlaying && newState.mediaId == pendingYoutubeAutoplayVideoId) {
             pendingYoutubeAutoplayVideoId = null
             handler.removeCallbacks(youtubeAutoplayAttempt)
@@ -536,6 +595,10 @@ internal class BrowserWebMediaController(
         if (checkpoint.pageUrl != pageUrl && !checkpointIsYouTubeVideo) {
             clearMediaPositionRestore()
             return false
+        }
+        if (checkpoint.isFullscreen && !mediaFullscreenRestoreScheduled) {
+            mediaFullscreenRestoreScheduled = true
+            pendingFullscreenMediaId = checkpoint.mediaId
         }
         if (!state.canSeek || state.durationMs <= 0L) {
             return waitForMediaPositionRestore()
@@ -717,12 +780,6 @@ internal class BrowserWebMediaController(
         return isYouTubeHost(host)
     }
 
-    private fun isYouTubeHost(host: String): Boolean =
-        host.equals("youtube.com", ignoreCase = true) ||
-            host.endsWith(".youtube.com", ignoreCase = true) ||
-            host.equals("youtube-nocookie.com", ignoreCase = true) ||
-            host.endsWith(".youtube-nocookie.com", ignoreCase = true)
-
     private fun youtubeVideoIdFromWatchUrl(candidate: String): String? {
         val uri = Uri.parse(candidate)
         if (uri.scheme != "https" || !isYouTubeHost(uri.host.orEmpty()) || uri.path != "/watch") return null
@@ -807,7 +864,158 @@ internal class BrowserWebMediaController(
         const val YOUTUBE_SEARCH_URL = "https://www.youtube.com/results"
         const val YOUTUBE_WATCH_URL = "https://www.youtube.com/watch"
         const val YOUTUBE_VIDEO_FILTER = "EgIQAQ=="
+        const val MAX_MIXES_READ_ATTEMPTS = 30
+        const val MIXES_READ_INTERVAL_MS = 500L
         val YOUTUBE_VIDEO_ID_REGEX = Regex("[A-Za-z0-9_-]{11}")
+        // Runs inside the signed-in YouTube page: walks ytInitialData, then asks InnerTube (signed with the
+        // page's SAPISID, as YouTube's own JS does) for the home feed and its "Mixes" chip, and resolves a
+        // seed video through `next` for mixes without one. Mix cards are lockupViewModel (www) or
+        // radioRenderer/compactRadioRenderer (m.youtube.com); mix playlist ids start with "RD".
+        val YOUTUBE_MIXES_START_SCRIPT = """
+            (function() {
+              const state = { done: false, items: [] };
+              window.__aaBrowserMixes = state;
+              const mixes = new Map();
+              const finish = function() {
+                state.items = Array.from(mixes.values()).filter(function(m) { return !!m.videoId; });
+                state.done = true;
+              };
+              try {
+                const cfg = function(k) {
+                  try { return window.ytcfg && ytcfg.get(k); } catch (_) { return undefined; }
+                };
+                const origin = location.origin;
+                const sidMatch = document.cookie.match(/(?:^|;\s*)(?:SAPISID|__Secure-3PAPISID)=([^;]+)/);
+                const sid = sidMatch ? sidMatch[1] : "";
+                const text = function(t) {
+                  if (!t) return "";
+                  return t.simpleText || t.content ||
+                    (t.runs || []).map(function(r) { return r.text; }).join("");
+                };
+                const unwrap = function(c) { return c && (c.innertubeCommand || c.command || c); };
+                const watchOf = function(e) { return (e && (e.watchEndpoint || e.watchPlaylistEndpoint)) || {}; };
+                const lastUrl = function(list) {
+                  const url = list && list.length ? String(list[list.length - 1].url || "") : "";
+                  return url.indexOf("//") === 0 ? "https:" + url : url;
+                };
+                const add = function(m) {
+                  const id = String(m.playlistId || "");
+                  if (id.indexOf("RD") !== 0 || mixes.has(id)) return;
+                  mixes.set(id, { playlistId: id, title: m.title || "", thumbnail: m.thumbnail || "",
+                    videoId: m.videoId || "" });
+                };
+                const walk = function(n, depth) {
+                  if (!n || typeof n !== "object" || depth > 80) return;
+                  if (Array.isArray(n)) { n.forEach(function(x) { walk(x, depth + 1); }); return; }
+                  const lv = n.lockupViewModel;
+                  if (lv && lv.contentType !== "LOCKUP_CONTENT_TYPE_VIDEO") {
+                    const context = lv.rendererContext && lv.rendererContext.commandContext;
+                    const w = watchOf(unwrap(context && context.onTap));
+                    const img = lv.contentImage || {};
+                    const collection = img.collectionThumbnailViewModel;
+                    const tv = (collection && collection.primaryThumbnail && collection.primaryThumbnail.thumbnailViewModel) ||
+                      img.thumbnailViewModel || {};
+                    const isMix = lv.contentType === "LOCKUP_CONTENT_TYPE_MIX" ||
+                      JSON.stringify(tv.overlays || []).indexOf("\"imageName\":\"MIX\"") >= 0;
+                    const id = lv.contentId || w.playlistId || "";
+                    if (isMix || id.indexOf("RD") === 0) {
+                      const meta = lv.metadata && lv.metadata.lockupMetadataViewModel;
+                      add({ playlistId: id, title: text(meta && meta.title),
+                        thumbnail: lastUrl(tv.image && tv.image.sources), videoId: w.videoId });
+                    }
+                  }
+                  // radioRenderer / compactRadioRenderer / compactStationRenderer / playlistRenderer all look
+                  // like this; objects with their own videoId are videos inside a mix, not the mix itself.
+                  if (!n.videoId && n.title && n.thumbnail) {
+                    const w = watchOf(n.navigationEndpoint);
+                    add({ playlistId: n.playlistId || w.playlistId, title: text(n.title),
+                      thumbnail: lastUrl(n.thumbnail.thumbnails), videoId: w.videoId });
+                  }
+                  Object.keys(n).forEach(function(k) { walk(n[k], depth + 1); });
+                };
+                const findMixesChip = function(root) {
+                  let found = null;
+                  (function f(n, depth) {
+                    if (found || !n || typeof n !== "object" || depth > 80) return;
+                    if (Array.isArray(n)) { n.forEach(function(x) { f(x, depth + 1); }); return; }
+                    const chip = n.chipCloudChipRenderer;
+                    if (chip && /^mixes${'$'}/i.test(text(chip.text))) { found = chip; return; }
+                    Object.keys(n).forEach(function(k) { f(n[k], depth + 1); });
+                  })(root, 0);
+                  return found;
+                };
+                const api = function(endpoint, body, clientOverride) {
+                  const baseContext = cfg("INNERTUBE_CONTEXT");
+                  if (!baseContext) return Promise.reject(new Error("no innertube context"));
+                  const context = JSON.parse(JSON.stringify(baseContext));
+                  Object.assign(context.client, clientOverride || {});
+                  const ts = Math.floor(Date.now() / 1000);
+                  return crypto.subtle.digest("SHA-1", new TextEncoder().encode(ts + " " + sid + " " + origin))
+                    .then(function(digest) {
+                      const hash = Array.from(new Uint8Array(digest))
+                        .map(function(b) { return ("0" + b.toString(16)).slice(-2); }).join("");
+                      const headers = {
+                        "Content-Type": "application/json",
+                        "X-Origin": origin,
+                        "X-Goog-AuthUser": String(cfg("SESSION_INDEX") || 0),
+                        "X-Goog-Visitor-Id": cfg("VISITOR_DATA") || "",
+                        "X-Youtube-Client-Name": String(cfg("INNERTUBE_CONTEXT_CLIENT_NAME") || ""),
+                        "X-Youtube-Client-Version": cfg("INNERTUBE_CLIENT_VERSION") || "",
+                        "X-Youtube-Bootstrap-Logged-In": "true"
+                      };
+                      if (sid) headers["Authorization"] = "SAPISIDHASH " + ts + "_" + hash;
+                      if (cfg("DELEGATED_SESSION_ID")) headers["X-Goog-PageId"] = cfg("DELEGATED_SESSION_ID");
+                      return fetch(origin + "/youtubei/v1/" + endpoint + "?prettyPrint=false", {
+                        method: "POST", credentials: "same-origin", headers: headers,
+                        body: JSON.stringify(Object.assign({ context: context }, body))
+                      });
+                    })
+                    .then(function(response) { return response.json(); });
+                };
+                walk(window.ytInitialData, 0);
+                if (!sid || !cfg("LOGGED_IN")) { finish(); return; }
+                // hl=en only for chip discovery so the chip is literally "Mixes"; titles keep the page language.
+                api("browse", { browseId: "FEwhat_to_watch" }, { hl: "en" })
+                  .then(function(home) {
+                    walk(home, 0);
+                    const chip = findMixesChip(home);
+                    const nav = chip && chip.navigationEndpoint;
+                    if (nav && nav.continuationCommand && nav.continuationCommand.token) {
+                      return api("browse", { continuation: nav.continuationCommand.token });
+                    }
+                    if (nav && nav.browseEndpoint) {
+                      return api("browse", { browseId: nav.browseEndpoint.browseId || "FEwhat_to_watch",
+                        params: nav.browseEndpoint.params });
+                    }
+                  })
+                  .then(function(chipResponse) {
+                    if (chipResponse) walk(chipResponse, 0);
+                    const missing = Array.from(mixes.values())
+                      .filter(function(m) { return !m.videoId; }).slice(0, 8);
+                    return Promise.all(missing.map(function(m) {
+                      return api("next", { playlistId: m.playlistId }).then(function(next) {
+                        const results = next.contents && next.contents.twoColumnWatchNextResults;
+                        const panel = results && results.playlist && results.playlist.playlist;
+                        const first = panel && panel.contents && panel.contents[0] &&
+                          panel.contents[0].playlistPanelVideoRenderer;
+                        const current = next.currentVideoEndpoint && next.currentVideoEndpoint.watchEndpoint;
+                        m.videoId = (current && current.videoId) || (first && first.videoId) || "";
+                      }).catch(function() {});
+                    }));
+                  })
+                  .catch(function() {})
+                  .then(finish);
+              } catch (_) {
+                finish();
+              }
+            })();
+        """.trimIndent()
+        val YOUTUBE_MIXES_READ_SCRIPT = """
+            (function() {
+              const state = window.__aaBrowserMixes;
+              return state ? JSON.stringify(state) : null;
+            })()
+        """.trimIndent()
         val FIRST_YOUTUBE_VIDEO_RESULT_SCRIPT = """
             (function() {
               const selectors = [
@@ -1140,3 +1348,18 @@ internal class BrowserWebMediaController(
         """.trimIndent()
     }
 }
+
+internal fun isYouTubeHost(host: String): Boolean =
+    host.equals("youtube.com", ignoreCase = true) ||
+        host.endsWith(".youtube.com", ignoreCase = true) ||
+        host.equals("youtube-nocookie.com", ignoreCase = true) ||
+        host.endsWith(".youtube-nocookie.com", ignoreCase = true)
+
+internal fun isYouTubeUrl(url: String): Boolean = isYouTubeHost(Uri.parse(url).host.orEmpty())
+
+internal fun youtubeSearchUrl(query: String): String =
+    Uri.parse("https://www.youtube.com/results")
+        .buildUpon()
+        .appendQueryParameter("search_query", query)
+        .build()
+        .toString()

@@ -27,6 +27,7 @@ import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
 import android.view.MotionEvent
+import android.view.Surface
 import androidx.car.app.AppManager
 import androidx.car.app.CarAppService
 import androidx.car.app.CarContext
@@ -62,9 +63,11 @@ class FullscreenCarService : CarAppService() {
         private val handler = Handler(Looper.getMainLooper())
         private var virtualDisplay: VirtualDisplay? = null
         private var presentation: BrowserPresentation? = null
+        private var hostSurface: Surface? = null
         private var activeInputScreen: WebInputScreen? = null
         private var surfaceWidth = 0
         private var surfaceHeight = 0
+        private var surfaceDpi = 0
         private var visibleArea: Rect? = null
         private var pointerX = 0f
         private var pointerY = 0f
@@ -115,13 +118,27 @@ class FullscreenCarService : CarAppService() {
                 .build()
 
         override fun onSurfaceAvailable(surfaceContainer: SurfaceContainer) {
+            val surface = surfaceContainer.surface?.takeIf { it.isValid } ?: return
+            val dpi = surfaceContainer.dpi.coerceAtLeast(160)
+            val parkedDisplay = virtualDisplay
+            if (parkedDisplay != null && presentation != null &&
+                surfaceContainer.width == surfaceWidth && surfaceContainer.height == surfaceHeight && dpi == surfaceDpi
+            ) {
+                // Back from the background: plug the new host surface into the display that kept playing.
+                hostSurface?.release()
+                hostSurface = surface
+                parkedDisplay.setSurface(surface)
+                presentation?.updateVisibleArea(surfaceWidth, surfaceHeight, visibleArea)
+                resetPointerPosition()
+                return
+            }
             releaseViewHost()
-            val surface = surfaceContainer.surface
-            if (surface == null || !surface.isValid) return
 
             surfaceWidth = surfaceContainer.width
             surfaceHeight = surfaceContainer.height
+            surfaceDpi = dpi
             if (surfaceWidth <= 0 || surfaceHeight <= 0) return
+            hostSurface = surface
 
             val displayManager =
                 getCarContext().getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager
@@ -132,7 +149,7 @@ class FullscreenCarService : CarAppService() {
                 getCarContext().getString(R.string.app_name),
                 surfaceWidth,
                 surfaceHeight,
-                surfaceContainer.dpi.coerceAtLeast(160),
+                dpi,
                 surface,
                 flags
             )
@@ -157,8 +174,27 @@ class FullscreenCarService : CarAppService() {
             presentation?.updateVisibleArea(surfaceWidth, surfaceHeight, this.visibleArea)
         }
 
+        // The host drops the surface when the head unit hides Android Auto (its native UI takes video
+        // focus). Tearing the presentation down here is what stopped playback: media apps keep playing
+        // through that, so keep the browser parked off-screen while media is playing.
         override fun onSurfaceDestroyed(surfaceContainer: SurfaceContainer) {
-            releaseViewHost()
+            if (virtualDisplay == null || presentation?.isMediaPlaying() != true) {
+                releaseViewHost()
+                return
+            }
+            // A VirtualDisplay without a surface reports STATE_OFF: ViewRootImpl stops drawing while
+            // Chromium still sees an attached, visible WebView, so audio and video keep running.
+            // shortcut: the parked shell stays until the next surface or screen destroy even if media stops;
+            // if a device's WebView pauses on STATE_OFF, park on an ImageReader surface instead.
+            detachHostSurface()
+        }
+
+        private fun detachHostSurface() {
+            handler.removeCallbacks(finishScroll)
+            scrollInProgress = false
+            virtualDisplay?.setSurface(null)
+            hostSurface?.release()
+            hostSurface = null
         }
 
         override fun onClick(x: Float, y: Float) {
@@ -235,14 +271,14 @@ class FullscreenCarService : CarAppService() {
         }
 
         private fun releaseViewHost() {
-            handler.removeCallbacks(finishScroll)
-            scrollInProgress = false
+            detachHostSurface()
             presentation?.dismiss()
             presentation = null
             virtualDisplay?.release()
             virtualDisplay = null
             surfaceWidth = 0
             surfaceHeight = 0
+            surfaceDpi = 0
         }
 
         private companion object {

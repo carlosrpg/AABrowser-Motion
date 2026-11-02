@@ -150,6 +150,7 @@ open class SplitScreenBrowserActivity : CarActivity(),
     }
 
     override fun onPause() {
+        android.util.Log.i(TAG, "onPause (media playing=${browserShell?.isMediaPlaying()})")
         projectedKeyboardController?.close()
         browserShell?.onPause()
         lifecycleRegistry.currentState = Lifecycle.State.STARTED
@@ -157,6 +158,7 @@ open class SplitScreenBrowserActivity : CarActivity(),
     }
 
     override fun onStop() {
+        android.util.Log.i(TAG, "onStop (media playing=${browserShell?.isMediaPlaying()})")
         lifecycleRegistry.currentState = Lifecycle.State.CREATED
         super.onStop()
     }
@@ -174,6 +176,7 @@ open class SplitScreenBrowserActivity : CarActivity(),
     }
 
     override fun onDestroy() {
+        android.util.Log.i(TAG, "onDestroy (media playing=${browserShell?.isMediaPlaying()})")
         handler.removeCallbacks(showProjectedKeyboardAfterInteraction)
         internalWindow?.let { window ->
             if (window.callback === inputWindowCallback) {
@@ -192,6 +195,7 @@ open class SplitScreenBrowserActivity : CarActivity(),
 
     private companion object {
         const val TEXT_INPUT_FOCUS_DELAY_MS = 75L
+        const val TAG = "SplitScreenBrowser"
     }
 
     private fun installInputWindowCallback(window: Window) {

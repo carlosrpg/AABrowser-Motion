@@ -38,6 +38,12 @@
     <string name="menu_open_github">Open GitHub repository</string>
     <string name="menu_open_description">Open browser menu</string>
     <string name="menu_open_address_bar">Open address bar</string>
+    <string name="menu_hide_controls">Hide controls</string>
+    <string name="voice_search">Search YouTube by voice</string>
+    <string name="voice_search_listening">Listening…</string>
+    <string name="mixes_tab">Mixes</string>
+    <string name="mixes_title">Your YouTube mixes</string>
+    <string name="mixes_empty">No mixes found. Sign in to YouTube in this tab and try again.</string>
     <string name="media_previous">Previous track</string>
     <string name="media_play">Play media</string>
     <string name="media_pause">Pause media</string>
@@ -119,6 +125,8 @@
     <string name="settings_quick_action_button_position_bottom_right">Bottom right</string>
     <string name="settings_quick_action_button_position_top_left">Top left</string>
     <string name="settings_quick_action_button_position_top_right">Top right</string>
+    <string name="settings_sheet_drag_alpha">Menu opacity while dragging</string>
+    <string name="settings_sheet_drag_alpha_description">Fades the menu while you drag it so the page behind stays visible.</string>
     <string name="settings_start_page">Start page</string>
     <string name="settings_start_page_count">%1$d/%2$d quick links configured</string>
     <string name="settings_start_page_background_default">Background: default gradient</string>
