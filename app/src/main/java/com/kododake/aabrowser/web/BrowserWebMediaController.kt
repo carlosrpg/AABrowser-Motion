@@ -408,6 +408,7 @@ internal class BrowserWebMediaController(
         }
         val requestId = ++mixesRequestId
         var attempts = 0
+        var restarts = 0
         webView.evaluateJavascript(YOUTUBE_MIXES_START_SCRIPT, null)
         val read = object : Runnable {
             override fun run() {
@@ -419,6 +420,18 @@ internal class BrowserWebMediaController(
                 }
                 current.evaluateJavascript(YOUTUBE_MIXES_READ_SCRIPT) { result ->
                     if (isDestroyed || requestId != mixesRequestId) return@evaluateJavascript
+                    if (result == null || result == "null") {
+                        // The document changed under us (navigation or tab switch): start over on this page.
+                        if (++restarts > MAX_MIXES_RESTARTS) {
+                            Log.i(TAG, "YouTube mixes: page kept changing, giving up for now")
+                            onResult(emptyList())
+                            return@evaluateJavascript
+                        }
+                        attempts = 0
+                        current.evaluateJavascript(YOUTUBE_MIXES_START_SCRIPT, null)
+                        handler.postDelayed(this, MIXES_READ_INTERVAL_MS)
+                        return@evaluateJavascript
+                    }
                     val timedOut = ++attempts >= MAX_MIXES_READ_ATTEMPTS
                     val outcome = YouTubeMixesParser.parse(result, acceptPartial = timedOut)
                     when {
@@ -427,7 +440,10 @@ internal class BrowserWebMediaController(
                             onResult(if (outcome.pageNotReady) null else outcome.mixes)
                         }
                         !timedOut -> handler.postDelayed(this, MIXES_READ_INTERVAL_MS)
-                        else -> onResult(emptyList())
+                        else -> {
+                            Log.i(TAG, "YouTube mixes: timed out without a readable result")
+                            onResult(emptyList())
+                        }
                     }
                 }
             }
@@ -888,6 +904,7 @@ internal class BrowserWebMediaController(
         const val YOUTUBE_WATCH_URL = "https://www.youtube.com/watch"
         const val YOUTUBE_VIDEO_FILTER = "EgIQAQ=="
         const val MAX_MIXES_READ_ATTEMPTS = 120
+        const val MAX_MIXES_RESTARTS = 8
         const val MAX_PENDING_FULLSCREEN_ATTEMPTS = 10
         const val MIXES_READ_INTERVAL_MS = 500L
         val YOUTUBE_VIDEO_ID_REGEX = Regex("[A-Za-z0-9_-]{11}")
