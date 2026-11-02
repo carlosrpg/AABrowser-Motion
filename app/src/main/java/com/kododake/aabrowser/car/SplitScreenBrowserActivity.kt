@@ -144,6 +144,7 @@ open class SplitScreenBrowserActivity : CarActivity(),
     }
 
     override fun onResume() {
+        android.util.Log.i(TAG, "onResume")
         super.onResume()
         lifecycleRegistry.currentState = Lifecycle.State.RESUMED
         browserShell?.onResume()

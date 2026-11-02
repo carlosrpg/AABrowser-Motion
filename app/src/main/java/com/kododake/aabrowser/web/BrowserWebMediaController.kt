@@ -83,6 +83,7 @@ internal class BrowserWebMediaController(
     private var heldMediaKeySeeks = 0
     // Video id whose player should be sent fullscreen once it is playing (mix tap, or restoring a maximized session).
     private var pendingFullscreenMediaId: String? = null
+    private var pendingFullscreenAttempts = 0
     private var mediaFullscreenRestoreScheduled = false
     private var mixesRequestId = 0L
 
@@ -383,6 +384,8 @@ internal class BrowserWebMediaController(
     /** Maximizes the current media once it is playing again (used after leaving fullscreen on pause). */
     fun requestFullscreenOnce() {
         pendingFullscreenMediaId = mediaState.mediaId.takeIf { mediaState.isAvailable }
+        pendingFullscreenAttempts = 0
+        Log.i(TAG, "fullscreen requested for ${pendingFullscreenMediaId}")
     }
 
     /** Opens the mix, starts it, and maximizes the player once it is playing. */
@@ -395,6 +398,7 @@ internal class BrowserWebMediaController(
         youtubeNextUrl = null
         youtubePreviousUrl = null
         pendingFullscreenMediaId = mix.videoId
+        pendingFullscreenAttempts = 0
         webView.loadUrl(mix.watchUrl)
         scheduleYoutubeAutoplay(mix.videoId)
     }
@@ -556,8 +560,15 @@ internal class BrowserWebMediaController(
         }
         publishState(newState)
         if (pendingFullscreenMediaId == newState.mediaId && newState.isPlaying && newState.hasFullscreenButton) {
-            pendingFullscreenMediaId = null
-            if (!isFullscreen()) toggleFullscreen()
+            // The click can be swallowed while the player re-renders, so retry across a few polls.
+            if (isFullscreen() || pendingFullscreenAttempts >= MAX_PENDING_FULLSCREEN_ATTEMPTS) {
+                Log.i(TAG, "pending fullscreen done (fullscreen=${isFullscreen()}, attempts=$pendingFullscreenAttempts)")
+                pendingFullscreenMediaId = null
+            } else {
+                pendingFullscreenAttempts++
+                Log.i(TAG, "maximizing player (attempt $pendingFullscreenAttempts)")
+                toggleFullscreen()
+            }
         }
         if (newState.isPlaying && newState.mediaId == pendingYoutubeAutoplayVideoId) {
             pendingYoutubeAutoplayVideoId = null
@@ -615,6 +626,7 @@ internal class BrowserWebMediaController(
         if (checkpoint.isFullscreen && !mediaFullscreenRestoreScheduled) {
             mediaFullscreenRestoreScheduled = true
             pendingFullscreenMediaId = checkpoint.mediaId
+            pendingFullscreenAttempts = 0
         }
         if (!state.canSeek || state.durationMs <= 0L) {
             return waitForMediaPositionRestore()
@@ -881,6 +893,7 @@ internal class BrowserWebMediaController(
         const val YOUTUBE_WATCH_URL = "https://www.youtube.com/watch"
         const val YOUTUBE_VIDEO_FILTER = "EgIQAQ=="
         const val MAX_MIXES_READ_ATTEMPTS = 30
+        const val MAX_PENDING_FULLSCREEN_ATTEMPTS = 3
         const val MIXES_READ_INTERVAL_MS = 500L
         val YOUTUBE_VIDEO_ID_REGEX = Regex("[A-Za-z0-9_-]{11}")
         // Runs inside the signed-in YouTube page: walks ytInitialData, then asks InnerTube (signed with the
