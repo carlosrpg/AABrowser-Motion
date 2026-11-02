@@ -365,8 +365,10 @@ class BrowserShellController(
     }
 
     private fun onMixesTabPressed() {
-        managers.uiManager.menuHelper.stateHolder.isMixesPanelVisible = true
-        refreshMixesIfStale()
+        val state = managers.uiManager.menuHelper.stateHolder
+        state.isMixesPanelVisible = true
+        // Mixes can only be read from a YouTube page; elsewhere show the last loaded list as is.
+        if (state.isYouTubePage) refreshMixesIfStale()
     }
 
     // Runs on every media poll of a YouTube page, so the list is ready before the tab is tapped. An empty
