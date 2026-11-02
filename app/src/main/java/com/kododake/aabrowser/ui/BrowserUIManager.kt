@@ -292,6 +292,15 @@ class BrowserUIManager(
 
     fun showMenuButtonTemporarily() = callbacks.showMenuButtonTemporarily()
 
+    // Fades the floating controls while the finger drags the page so the content under them stays visible.
+    fun setControlsDragging(dragging: Boolean) {
+        val alpha = if (dragging) BrowserPreferences.getSheetDragAlphaPercent(context) / 100f else 1f
+        listOf(
+            binding.fabComposeView, binding.hideUiComposeView, binding.mixesTabComposeView,
+            binding.voiceSearchComposeView, binding.mediaControlsComposeView, binding.fullscreenControlComposeView
+        ).forEach { it.animate().alpha(alpha).setDuration(120).start() }
+    }
+
     fun openUriExternally(uri: Uri) {
         runCatching {
             context.startActivity(Intent(Intent.ACTION_VIEW, uri).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })

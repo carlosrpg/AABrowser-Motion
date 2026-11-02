@@ -44,7 +44,8 @@ object BrowserTabFactory {
         onRequestSpeechMicrophone: (tabId: Long, pageUrl: String?) -> Unit,
         onSanitizeJsExternalUrl: (sourceWebView: android.webkit.WebView, rawUrl: String?) -> Uri?,
         onOpenUriExternally: (Uri) -> Unit,
-        onShowMenuButtonTemporarily: () -> Unit
+        onShowMenuButtonTemporarily: () -> Unit,
+        onPageDragChanged: (Boolean) -> Unit = {}
     ): BrowserTab {
         val tabView = object : android.webkit.WebView(context) {
             // Chromium pauses video once the window is hidden; keep it "visible" so media plays in the background.
@@ -88,8 +89,12 @@ object BrowserTabFactory {
         setupWebMessageListener(tabView, speechBridge)
         setupJavascriptInterface(context, tabView, onSanitizeJsExternalUrl, onOpenUriExternally)
 
-        tabView.setOnTouchListener { _, _ ->
+        tabView.setOnTouchListener { _, event ->
             onShowMenuButtonTemporarily()
+            when (event.actionMasked) {
+                android.view.MotionEvent.ACTION_MOVE -> onPageDragChanged(true)
+                android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> onPageDragChanged(false)
+            }
             false
         }
         tabView.onPause()

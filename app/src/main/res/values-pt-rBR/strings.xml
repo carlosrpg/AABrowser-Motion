@@ -126,8 +126,8 @@
     <string name="settings_quick_action_button_position_bottom_right">Inferior direita</string>
     <string name="settings_quick_action_button_position_top_left">Superior esquerda</string>
     <string name="settings_quick_action_button_position_top_right">Superior direita</string>
-    <string name="settings_sheet_drag_alpha">Opacidade do menu ao arrastar</string>
-    <string name="settings_sheet_drag_alpha_description">Deixa o menu translúcido enquanto você o arrasta, para a página atrás continuar visível.</string>
+    <string name="settings_sheet_drag_alpha">Opacidade dos controles ao arrastar</string>
+    <string name="settings_sheet_drag_alpha_description">Deixa os controles flutuantes e os menus translúcidos enquanto você arrasta, para a página continuar visível.</string>
     <string name="settings_start_page">Início</string>
     <string name="settings_start_page_count">%1$d/%2$d atalhos configurados</string>
     <string name="settings_start_page_background_default">Plano de fundo: gradiente padrão</string>

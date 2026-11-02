@@ -51,7 +51,8 @@ internal class BrowserWebMediaController(
     private val getPageUrl: () -> String,
     private val onStateChanged: (BrowserMediaState) -> Unit,
     private val onMediaPositionRestoreAttempted: () -> Unit = {},
-    private val isFullscreen: () -> Boolean = { false }
+    private val isFullscreen: () -> Boolean = { false },
+    private val onYouTubePagePolled: () -> Unit = {}
 ) {
     internal val applicationContext = context.applicationContext
     private var pendingMediaRestore = BrowserPreferences.getMediaCheckpoint(applicationContext)
@@ -393,8 +394,11 @@ internal class BrowserWebMediaController(
         scheduleYoutubeAutoplay(mix.videoId)
     }
 
-    /** Enumerates the signed-in user's mixes from the current YouTube page; empty when unavailable. */
-    fun loadYouTubeMixes(onResult: (List<YouTubeMix>) -> Unit) {
+    /**
+     * Enumerates the signed-in user's mixes from the current YouTube page. The result is empty when
+     * unavailable and null when the page was not ready to be asked yet (call again later).
+     */
+    fun loadYouTubeMixes(onResult: (List<YouTubeMix>?) -> Unit) {
         val webView = getWebView()
         if (isDestroyed || webView == null || !isYouTubePage()) {
             onResult(emptyList())
@@ -413,9 +417,12 @@ internal class BrowserWebMediaController(
                 }
                 current.evaluateJavascript(YOUTUBE_MIXES_READ_SCRIPT) { result ->
                     if (isDestroyed || requestId != mixesRequestId) return@evaluateJavascript
-                    val mixes = YouTubeMixesParser.parse(result)
+                    val outcome = YouTubeMixesParser.parse(result)
                     when {
-                        mixes != null -> onResult(mixes)
+                        outcome != null -> {
+                            Log.i(TAG, "YouTube mixes: ${outcome.mixes.size} found (page ready=${!outcome.pageNotReady})")
+                            onResult(if (outcome.pageNotReady) null else outcome.mixes)
+                        }
                         ++attempts < MAX_MIXES_READ_ATTEMPTS -> handler.postDelayed(this, MIXES_READ_INTERVAL_MS)
                         else -> onResult(emptyList())
                     }
@@ -476,6 +483,7 @@ internal class BrowserWebMediaController(
         }
         unmuteMutedYouTubeOnStartup(webView, data)
         updateState(data)
+        if (data.optBoolean("isYouTube")) onYouTubePagePolled()
     }
 
     private fun unmuteMutedYouTubeOnStartup(webView: WebView, data: JSONObject) {
@@ -574,7 +582,10 @@ internal class BrowserWebMediaController(
             state.canSkipNext != mediaState.canSkipNext ||
             state.hasFullscreenButton != mediaState.hasFullscreenButton
         mediaState = state
-        if (uiStateChanged) onStateChanged(state)
+        if (uiStateChanged) {
+            Log.i(TAG, "media: available=${state.isAvailable} playing=${state.isPlaying} fullscreenButton=${state.hasFullscreenButton} id=${state.mediaId}")
+            onStateChanged(state)
+        }
     }
 
     private fun restoreMediaPosition(
@@ -873,7 +884,7 @@ internal class BrowserWebMediaController(
         // radioRenderer/compactRadioRenderer (m.youtube.com); mix playlist ids start with "RD".
         val YOUTUBE_MIXES_START_SCRIPT = """
             (function() {
-              const state = { done: false, items: [] };
+              const state = { done: false, notReady: false, items: [] };
               window.__aaBrowserMixes = state;
               const mixes = new Map();
               const finish = function() {
@@ -884,6 +895,7 @@ internal class BrowserWebMediaController(
                 const cfg = function(k) {
                   try { return window.ytcfg && ytcfg.get(k); } catch (_) { return undefined; }
                 };
+                if (!cfg("INNERTUBE_CONTEXT")) { state.notReady = true; finish(); return; }
                 const origin = location.origin;
                 const sidMatch = document.cookie.match(/(?:^|;\s*)(?:SAPISID|__Secure-3PAPISID)=([^;]+)/);
                 const sid = sidMatch ? sidMatch[1] : "";
@@ -972,24 +984,55 @@ internal class BrowserWebMediaController(
                     })
                     .then(function(response) { return response.json(); });
                 };
+                const continuationToken = function(root) {
+                  let token = null;
+                  (function f(n, depth) {
+                    if (token || !n || typeof n !== "object" || depth > 80) return;
+                    if (Array.isArray(n)) { n.forEach(function(x) { f(x, depth + 1); }); return; }
+                    const item = n.continuationItemRenderer;
+                    const endpoint = item && item.continuationEndpoint;
+                    const command = endpoint && (endpoint.continuationCommand ||
+                      (endpoint.commandExecutorCommand && endpoint.commandExecutorCommand.commands || [])
+                        .map(function(c) { return c.continuationCommand; }).find(Boolean));
+                    if (command && command.token) { token = command.token; return; }
+                    Object.keys(n).forEach(function(k) { f(n[k], depth + 1); });
+                  })(root, 0);
+                  return token;
+                };
+                // Pages are small (5 cards on mobile), so keep following "load more" until enough mixes.
+                const walkPages = function(response, pagesLeft) {
+                  const before = mixes.size;
+                  walk(response, 0);
+                  const token = continuationToken(response);
+                  if (!token || pagesLeft <= 0 || mixes.size >= 60 || (mixes.size === before && pagesLeft < 8)) {
+                    return Promise.resolve();
+                  }
+                  return api("browse", { continuation: token }).then(function(next) {
+                    return walkPages(next, pagesLeft - 1);
+                  });
+                };
                 walk(window.ytInitialData, 0);
                 if (!sid || !cfg("LOGGED_IN")) { finish(); return; }
                 // hl=en only for chip discovery so the chip is literally "Mixes"; titles keep the page language.
                 api("browse", { browseId: "FEwhat_to_watch" }, { hl: "en" })
                   .then(function(home) {
-                    walk(home, 0);
                     const chip = findMixesChip(home);
                     const nav = chip && chip.navigationEndpoint;
                     if (nav && nav.continuationCommand && nav.continuationCommand.token) {
-                      return api("browse", { continuation: nav.continuationCommand.token });
+                      walk(home, 0);
+                      return api("browse", { continuation: nav.continuationCommand.token })
+                        .then(function(first) { return walkPages(first, 10); });
                     }
                     if (nav && nav.browseEndpoint) {
+                      walk(home, 0);
                       return api("browse", { browseId: nav.browseEndpoint.browseId || "FEwhat_to_watch",
-                        params: nav.browseEndpoint.params });
+                        params: nav.browseEndpoint.params })
+                        .then(function(first) { return walkPages(first, 10); });
                     }
+                    // No chip: mixes are scattered through the feed, so page the feed itself a little.
+                    return walkPages(home, 3);
                   })
-                  .then(function(chipResponse) {
-                    if (chipResponse) walk(chipResponse, 0);
+                  .then(function() {
                     const missing = Array.from(mixes.values())
                       .filter(function(m) { return !m.videoId; }).slice(0, 8);
                     return Promise.all(missing.map(function(m) {
@@ -1178,7 +1221,7 @@ internal class BrowserWebMediaController(
                     (isPlaylist && isEnabled(controls[0]))
                   : isPlaylist ? isEnabled(controls[0]) :
                     typeof bridge.previous === "function",
-                hasFullscreenButton: !!fullscreenButton
+                hasFullscreenButton: !!fullscreenButton && duration > 0
               });
             })()
         """.trimIndent()

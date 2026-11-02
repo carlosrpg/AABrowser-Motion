@@ -1,6 +1,7 @@
 package com.kododake.aabrowser.web
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -20,7 +21,7 @@ class YouTubeMixesParserTest {
             {"title":"","thumbnail":"https://i.ytimg.com/y.jpg","videoId":"ABCDEFGHIJK","playlistId":"RDAMVMxyz"}
         ]}"""
 
-        val mixes = YouTubeMixesParser.parse(encoded(payload))!!
+        val mixes = YouTubeMixesParser.parse(encoded(payload))!!.mixes
 
         assertEquals(listOf("RDMMabcdefghijk", "RDAMVMxyz"), mixes.map { it.playlistId })
         assertEquals("RDAMVMxyz", mixes[1].title)
@@ -37,6 +38,13 @@ class YouTubeMixesParserTest {
 
     @Test
     fun doneWithoutItemsIsEmpty() {
-        assertTrue(YouTubeMixesParser.parse(encoded("""{"done":true}"""))!!.isEmpty())
+        val outcome = YouTubeMixesParser.parse(encoded("""{"done":true}"""))!!
+        assertTrue(outcome.mixes.isEmpty())
+        assertFalse(outcome.pageNotReady)
+    }
+
+    @Test
+    fun reportsPageNotReady() {
+        assertTrue(YouTubeMixesParser.parse(encoded("""{"done":true,"notReady":true,"items":[]}"""))!!.pageNotReady)
     }
 }

@@ -18,6 +18,7 @@
 package com.kododake.aabrowser.ui.controllers
 
 import android.content.Context
+import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.view.MotionEvent
@@ -72,6 +73,7 @@ class FullscreenController(
             return
         }
 
+        Log.i(TAG, "enterFullscreen")
         (view.parent as? ViewGroup)?.removeView(view)
         customView = view
         customViewCallback = callback
@@ -98,6 +100,8 @@ class FullscreenController(
         onRestoreView: () -> Unit
     ) {
         if (customView == null) return
+        // Stack trace on purpose: tells whether Chromium or our own code ended fullscreen.
+        Log.i(TAG, "exitFullscreen fromWebChrome=$fromWebChrome", Throwable())
 
         binding.fullscreenContainer.apply {
             removeAllViews()
@@ -117,6 +121,10 @@ class FullscreenController(
         }
         updateSystemBars()
         onFullscreenChanged(false)
+    }
+
+    private companion object {
+        const val TAG = "FullscreenController"
     }
 
     private class TouchAwareFullscreenContainer(

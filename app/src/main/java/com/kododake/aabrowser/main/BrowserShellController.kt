@@ -104,7 +104,8 @@ class BrowserShellController(
             managers.uiManager.menuHelper.updateMediaState(state)
         },
         onMediaPositionRestoreAttempted = managers.uiManager::showMediaRestoreCueTemporarily,
-        isFullscreen = { managers.uiManager.isInFullscreen() }
+        isFullscreen = { managers.uiManager.isInFullscreen() },
+        onYouTubePagePolled = ::refreshMixesIfStale
     )
 
     private val voiceSearch = VoiceSearchController(
@@ -364,19 +365,23 @@ class BrowserShellController(
     }
 
     private fun onMixesTabPressed() {
+        managers.uiManager.menuHelper.stateHolder.isMixesPanelVisible = true
+        refreshMixesIfStale()
+    }
+
+    // Runs on every media poll of a YouTube page, so the list is ready before the tab is tapped.
+    private fun refreshMixesIfStale() {
         val state = managers.uiManager.menuHelper.stateHolder
-        state.isMixesPanelVisible = true
-        val fresh = state.mixes.isNotEmpty() &&
-            SystemClock.elapsedRealtime() - mixesLoadedAtMs < MIXES_CACHE_MS
-        if (fresh || state.isMixesLoading) return
+        if (state.isMixesLoading) return
+        val ttl = if (state.mixes.isEmpty()) MIXES_RETRY_MS else MIXES_CACHE_MS
+        if (mixesLoadedAtMs != 0L && SystemClock.elapsedRealtime() - mixesLoadedAtMs < ttl) return
         state.isMixesLoading = true
         mediaController.loadYouTubeMixes { mixes ->
             state.isMixesLoading = false
+            if (mixes == null) return@loadYouTubeMixes // page not ready: the next poll asks again
+            mixesLoadedAtMs = SystemClock.elapsedRealtime()
             // A failed refresh keeps the last good list.
-            if (mixes.isNotEmpty()) {
-                state.mixes = mixes
-                mixesLoadedAtMs = SystemClock.elapsedRealtime()
-            }
+            if (mixes.isNotEmpty()) state.mixes = mixes
         }
     }
 
@@ -423,6 +428,7 @@ class BrowserShellController(
     override fun onRecreateRequested() = hostContext.recreateHost()
 
     private companion object {
-        const val MIXES_CACHE_MS = 10 * 60 * 1_000L
+        const val MIXES_CACHE_MS = 15 * 60 * 1_000L
+        const val MIXES_RETRY_MS = 2 * 60 * 1_000L
     }
 }

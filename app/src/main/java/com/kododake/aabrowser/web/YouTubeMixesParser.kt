@@ -24,21 +24,25 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 
-/** Turns the mixes page script's `{done, items[]}` payload into validated [YouTubeMix] entries. */
+/** Turns the mixes page script's `{done, notReady, items[]}` payload into validated [YouTubeMix] entries. */
 internal object YouTubeMixesParser {
     private val VIDEO_ID = Regex("[A-Za-z0-9_-]{11}")
     private val MIX_ID = Regex("RD[A-Za-z0-9_-]{1,80}")
 
+    /** [pageNotReady]: YouTube's page config was not there yet, so the result says nothing; retry later. */
+    data class Outcome(val mixes: List<YouTubeMix>, val pageNotReady: Boolean)
+
     /** [result] is raw `WebView.evaluateJavascript` output; null means the page is still fetching. */
-    fun parse(result: String?): List<YouTubeMix>? {
+    fun parse(result: String?): Outcome? {
         val payload = runCatching {
             var element = Json.parseToJsonElement(result ?: "null")
             if (element is JsonPrimitive && element.isString) element = Json.parseToJsonElement(element.content)
             element as? JsonObject
         }.getOrNull() ?: return null
         if ((payload["done"] as? JsonPrimitive)?.booleanOrNull != true) return null
-        val items = payload["items"] as? JsonArray ?: return emptyList()
-        return items.mapNotNull { item ->
+        val notReady = (payload["notReady"] as? JsonPrimitive)?.booleanOrNull == true
+        val items = payload["items"] as? JsonArray ?: return Outcome(emptyList(), notReady)
+        val mixes = items.mapNotNull { item ->
             val entry = item as? JsonObject ?: return@mapNotNull null
             val videoId = entry.string("videoId")
             val playlistId = entry.string("playlistId")
@@ -53,6 +57,7 @@ internal object YouTubeMixesParser {
                 playlistId = playlistId
             )
         }.distinctBy { it.playlistId }
+        return Outcome(mixes, notReady)
     }
 
     private fun JsonObject.string(key: String): String =

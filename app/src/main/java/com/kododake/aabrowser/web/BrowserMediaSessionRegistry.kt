@@ -164,7 +164,11 @@ internal object BrowserMediaSessionRegistry {
         val session: MediaSessionCompat
         val service: BrowserMediaBrowserService?
         synchronized(this) {
-            if (activeController !== controller) return
+            if (activeController !== controller) {
+                // Another shell (phone or car) owns the session; the one that is playing takes it over.
+                if (!state.isPlaying) return
+                activeController = controller
+            }
             currentState = state
             if (updateMetadata) currentMetadata = metadata
             session = getSession(controller.applicationContext)

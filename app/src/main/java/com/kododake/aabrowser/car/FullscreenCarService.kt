@@ -100,7 +100,12 @@ class FullscreenCarService : CarAppService() {
         init {
             getCarContext().getCarService(AppManager::class.java).setSurfaceCallback(this)
             lifecycle.addObserver(object : DefaultLifecycleObserver {
+                override fun onStart(owner: LifecycleOwner) { Log.i(TAG, "screen onStart") }
+                override fun onResume(owner: LifecycleOwner) { Log.i(TAG, "screen onResume") }
+                override fun onPause(owner: LifecycleOwner) { Log.i(TAG, "screen onPause") }
+                override fun onStop(owner: LifecycleOwner) { Log.i(TAG, "screen onStop") }
                 override fun onDestroy(owner: LifecycleOwner) {
+                    Log.i(TAG, "screen onDestroy")
                     handler.removeCallbacksAndMessages(null)
                     releaseViewHost()
                 }
@@ -118,6 +123,11 @@ class FullscreenCarService : CarAppService() {
                 .build()
 
         override fun onSurfaceAvailable(surfaceContainer: SurfaceContainer) {
+            Log.i(
+                TAG,
+                "onSurfaceAvailable ${surfaceContainer.width}x${surfaceContainer.height}@${surfaceContainer.dpi} " +
+                    "parked=${virtualDisplay != null && hostSurface == null}"
+            )
             val surface = surfaceContainer.surface?.takeIf { it.isValid } ?: return
             val dpi = surfaceContainer.dpi.coerceAtLeast(160)
             val parkedDisplay = virtualDisplay
@@ -170,6 +180,7 @@ class FullscreenCarService : CarAppService() {
         }
 
         override fun onVisibleAreaChanged(visibleArea: Rect) {
+            Log.i(TAG, "onVisibleAreaChanged $visibleArea")
             this.visibleArea = visibleArea.takeUnless(Rect::isEmpty)?.let(::Rect)
             presentation?.updateVisibleArea(surfaceWidth, surfaceHeight, this.visibleArea)
         }
@@ -178,6 +189,7 @@ class FullscreenCarService : CarAppService() {
         // focus). Tearing the presentation down here is what stopped playback: media apps keep playing
         // through that, so keep the browser parked off-screen while media is playing.
         override fun onSurfaceDestroyed(surfaceContainer: SurfaceContainer) {
+            Log.i(TAG, "onSurfaceDestroyed playing=${presentation?.isMediaPlaying()}")
             if (virtualDisplay == null || presentation?.isMediaPlaying() != true) {
                 releaseViewHost()
                 return

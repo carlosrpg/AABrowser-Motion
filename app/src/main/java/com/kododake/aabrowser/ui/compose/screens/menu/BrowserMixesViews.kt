@@ -140,7 +140,7 @@ fun BrowserMixesPanel(
                     )
                     Spacer(Modifier.height(12.dp))
                     when {
-                        stateHolder.isMixesLoading -> Box(Modifier.fillMaxSize(), Alignment.Center) {
+                        stateHolder.isMixesLoading && stateHolder.mixes.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {
                             ExpressiveLoadingIndicator()
                         }
                         stateHolder.mixes.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {
