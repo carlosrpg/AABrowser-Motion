@@ -201,7 +201,7 @@ try {
     Copy-Item $apk.FullName $distApk -Force
 
     Write-Host ''
-    Write-Host "Signed $variant APK ready for Android 15/API 35 or newer:" -ForegroundColor Green
+    Write-Host "Signed $variant APK ready for Android 11/API 30 or newer (phone and Android Automotive):" -ForegroundColor Green
     Write-Host $distApk -ForegroundColor Cyan
     Write-Host ''
     Write-Host "Install with: adb install -r `"$distApk`""

@@ -32,15 +32,34 @@ object BookmarkPreferences {
 
     const val GAME_BOOKMARK_URL = "https://kododake.com/game/"
 
+    // Same sites, in the same order, as the default start page quick links (StartPagePreferences).
     val DEFAULT_BOOKMARK_ENTRIES = listOf(
         BookmarkEntry("https://www.google.com", "Google"),
-        BookmarkEntry("https://youtube.com", "YouTube"),
-        BookmarkEntry("https://duckduckgo.com", "DuckDuckGo"),
-        BookmarkEntry("https://keepandroidopen.org", "Keep Android Open"),
-        BookmarkEntry(GAME_BOOKMARK_URL, "Kododake Games")
+        BookmarkEntry("https://m.youtube.com", "YouTube"),
+        BookmarkEntry("https://globoplay.com", "Globoplay"),
+        BookmarkEntry("https://youtubekids.com", "YouTube Kids"),
+        BookmarkEntry("https://www.clarotvmais.com.br", "Claro tv+"),
+        BookmarkEntry("https://www.crunchyroll.com", "Crunchyroll")
     )
 
     val DEFAULT_BOOKMARKS: List<String> = DEFAULT_BOOKMARK_ENTRIES.map { it.url }
+
+    // Previous defaults: an untouched list is replaced by the new defaults, a customized one is kept.
+    // The game bookmark was appended to older installs by ensureGameBookmarkMigrated.
+    private val LEGACY_DEFAULT_BOOKMARKS = listOf(
+        "https://www.google.com",
+        "https://youtube.com",
+        "https://duckduckgo.com",
+        "https://keepandroidopen.org"
+    )
+
+    internal fun isLegacyDefaultBookmarks(urls: List<String>): Boolean {
+        fun normalize(url: String) = url.trim().trimEnd('/').lowercase()
+        val stored = urls.map(::normalize)
+        if (stored.size != stored.toSet().size) return false
+        val legacy = LEGACY_DEFAULT_BOOKMARKS.map(::normalize).toSet()
+        return stored.toSet() == legacy || stored.toSet() == legacy + normalize(GAME_BOOKMARK_URL)
+    }
 
     @Volatile
     private var cachedBookmarkEntries: List<BookmarkEntry>? = null
@@ -50,7 +69,7 @@ object BookmarkPreferences {
         if (cached != null) return cached
 
         val entries = loadBookmarkEntries(context)
-        val result = if (entries.isEmpty()) {
+        val result = if (entries.isEmpty() || isLegacyDefaultBookmarks(entries.map { it.url })) {
             persistBookmarkEntries(context, DEFAULT_BOOKMARK_ENTRIES)
             DEFAULT_BOOKMARK_ENTRIES
         } else {

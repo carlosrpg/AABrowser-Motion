@@ -16,7 +16,7 @@ android {
 
     defaultConfig {
         applicationId = "com.carlosrpg.aabrowser"
-        minSdk = 35
+        minSdk = 30
         targetSdk = 37
         // CI passes -PappVersionName=X.Y.Z[-suffix]; versionCode is derived so it always grows with the version.
         // Local builds mirror CI (next patch after the latest vX.Y.Z tag, "-dev") so they install over CI builds;

@@ -28,6 +28,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.color.DynamicColors
+import com.kododake.aabrowser.web.BrowserMediaSessionRegistry
 import com.kododake.aabrowser.data.BrowserPreferences
 import com.kododake.aabrowser.databinding.ActivityMainBinding
 import com.kododake.aabrowser.main.BrowserHostContext
@@ -75,6 +76,7 @@ class MainActivity : AppCompatActivity(), BrowserHostContext {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         WebViewWarmupHelper.warmup(this)
+        BrowserMediaSessionRegistry.hideMediaSourceOnAutomotive(this)
         DynamicColors.applyToActivityIfAvailable(this)
         AppCompatDelegate.setDefaultNightMode(BrowserPreferences.getThemeMode(this).nightMode)
         super.onCreate(savedInstanceState)

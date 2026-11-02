@@ -139,7 +139,7 @@ fun BrowserFullscreenControl(
     }
 }
 
-/** Large mic button on the FAB layer: speak a query, get the YouTube results page. */
+/** Large mic button on the FAB layer (YouTube pages only): speak a query, get the YouTube results page. */
 @Composable
 fun BrowserVoiceSearchButton(
     stateHolder: MenuStateHolder,
@@ -147,8 +147,8 @@ fun BrowserVoiceSearchButton(
 ) {
     AABrowserTheme {
         AnimatedVisibility(
-            visible = stateHolder.isVoiceSearchListening ||
-                stateHolder.isFabVisible || stateHolder.isFullscreenMediaControlsVisible,
+            visible = stateHolder.isVoiceSearchListening || (stateHolder.isYouTubePage &&
+                (stateHolder.isFabVisible || stateHolder.isFullscreenMediaControlsVisible)),
             enter = scaleIn(tween(180)) + fadeIn(tween(180)),
             exit = scaleOut(tween(120)) + fadeOut(tween(120))
         ) {

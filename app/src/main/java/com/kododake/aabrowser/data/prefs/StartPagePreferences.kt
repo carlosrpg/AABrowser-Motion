@@ -27,7 +27,7 @@ object StartPagePreferences {
     private const val KEY_START_PAGE_SLOTS = "start_page_slots"
     private const val KEY_START_PAGE_BACKGROUND_URI = "start_page_background_uri"
 
-    private val DEFAULT_START_PAGE_SITES = listOf(
+    internal val DEFAULT_START_PAGE_SITES = listOf(
         "https://www.google.com",
         "https://m.youtube.com",
         "https://globoplay.com",
