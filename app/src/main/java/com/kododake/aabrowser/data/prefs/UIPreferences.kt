@@ -36,7 +36,7 @@ object UIPreferences {
 
     const val MIN_SHEET_DRAG_ALPHA_PERCENT = 10
     const val MAX_SHEET_DRAG_ALPHA_PERCENT = 100
-    const val DEFAULT_SHEET_DRAG_ALPHA_PERCENT = 60
+    const val DEFAULT_SHEET_DRAG_ALPHA_PERCENT = 80
 
     /** Opacity (percent) of a bottom sheet while the user is dragging it. */
     fun getSheetDragAlphaPercent(context: Context): Int {

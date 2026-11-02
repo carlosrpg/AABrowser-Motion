@@ -2,7 +2,7 @@
 
 ## Unreleased
 - Add an eye button beside the temporary controls that hides the menu button and media controls immediately.
-- Fade bottom sheets while they are being dragged (opacity configurable under In-app controls, default 60%) so the page behind stays visible.
+- Fade bottom sheets while they are being dragged (opacity configurable under In-app controls, default 80%) so the page behind stays visible.
 - Add a Mixes tab on YouTube pages that lists the signed-in user's mixes (thumbnail and title); tapping one plays it and maximizes the player once it is playing.
 - Add a large mic button beside the temporary controls: speak a query to open the YouTube results for it.
 - Remember whether media was playing maximized and restore that together with the playback position.
