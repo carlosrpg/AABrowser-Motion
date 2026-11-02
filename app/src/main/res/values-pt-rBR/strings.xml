@@ -39,6 +39,12 @@
     <string name="menu_open_github">Abrir repositório no GitHub</string>
     <string name="menu_open_description">Abrir menu do navegador</string>
     <string name="menu_open_address_bar">Abrir barra de endereço</string>
+    <string name="menu_hide_controls">Ocultar controles</string>
+    <string name="voice_search">Pesquisar no YouTube por voz</string>
+    <string name="voice_search_listening">Ouvindo…</string>
+    <string name="mixes_tab">Mixes</string>
+    <string name="mixes_title">Seus mixes do YouTube</string>
+    <string name="mixes_empty">Nenhum mix encontrado. Entre na sua conta do YouTube nesta aba e tente novamente.</string>
     <string name="media_previous">Faixa anterior</string>
     <string name="media_play">Reproduzir mídia</string>
     <string name="media_pause">Pausar mídia</string>
@@ -120,6 +126,8 @@
     <string name="settings_quick_action_button_position_bottom_right">Inferior direita</string>
     <string name="settings_quick_action_button_position_top_left">Superior esquerda</string>
     <string name="settings_quick_action_button_position_top_right">Superior direita</string>
+    <string name="settings_sheet_drag_alpha">Opacidade dos controles ao arrastar</string>
+    <string name="settings_sheet_drag_alpha_description">Deixa os controles flutuantes e os menus translúcidos enquanto você arrasta, para a página continuar visível.</string>
     <string name="settings_start_page">Início</string>
     <string name="settings_start_page_count">%1$d/%2$d atalhos configurados</string>
     <string name="settings_start_page_background_default">Plano de fundo: gradiente padrão</string>

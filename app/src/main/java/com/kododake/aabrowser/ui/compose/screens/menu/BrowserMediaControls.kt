@@ -42,6 +42,8 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material.icons.rounded.Fullscreen
+import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -133,6 +135,41 @@ fun BrowserFullscreenControl(
                 description = stringResource(R.string.media_fullscreen),
                 onClick = onClick
             )
+        }
+    }
+}
+
+/** Large mic button on the FAB layer: speak a query, get the YouTube results page. */
+@Composable
+fun BrowserVoiceSearchButton(
+    stateHolder: MenuStateHolder,
+    onClick: () -> Unit
+) {
+    AABrowserTheme {
+        AnimatedVisibility(
+            visible = stateHolder.isVoiceSearchListening ||
+                stateHolder.isFabVisible || stateHolder.isFullscreenMediaControlsVisible,
+            enter = scaleIn(tween(180)) + fadeIn(tween(180)),
+            exit = scaleOut(tween(120)) + fadeOut(tween(120))
+        ) {
+            val listening = stateHolder.isVoiceSearchListening
+            Surface(
+                modifier = Modifier.size(80.dp),
+                shape = RoundedCornerShape(24.dp),
+                color = if (listening) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = if (listening) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer,
+                tonalElevation = 2.dp
+            ) {
+                IconButton(onClick = onClick, modifier = Modifier.size(80.dp)) {
+                    Icon(
+                        if (listening) Icons.Rounded.GraphicEq else Icons.Rounded.Mic,
+                        contentDescription = stringResource(
+                            if (listening) R.string.voice_search_listening else R.string.voice_search
+                        ),
+                        modifier = Modifier.size(40.dp)
+                    )
+                }
+            }
         }
     }
 }

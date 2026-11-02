@@ -41,6 +41,8 @@ object BrowserPreferences {
     const val MIN_GLOBAL_SCALE_PERCENT = DisplayPreferences.MIN_GLOBAL_SCALE_PERCENT
     const val MAX_GLOBAL_SCALE_PERCENT = DisplayPreferences.MAX_GLOBAL_SCALE_PERCENT
     const val DEFAULT_GLOBAL_SCALE_PERCENT = DisplayPreferences.DEFAULT_GLOBAL_SCALE_PERCENT
+    const val MIN_SHEET_DRAG_ALPHA_PERCENT = UIPreferences.MIN_SHEET_DRAG_ALPHA_PERCENT
+    const val MAX_SHEET_DRAG_ALPHA_PERCENT = UIPreferences.MAX_SHEET_DRAG_ALPHA_PERCENT
 
     // --- URL Formatter ---
     fun formatNavigableUrl(raw: String): String = UrlFormatter.formatNavigableUrl(raw)
@@ -85,6 +87,8 @@ object BrowserPreferences {
     fun setQuickActionButtonPosition(context: Context, position: QuickActionButtonPosition) = UIPreferences.setQuickActionButtonPosition(context, position)
     fun shouldHideSponsors(context: Context): Boolean = UIPreferences.shouldHideSponsors(context)
     fun setHideSponsors(context: Context, hide: Boolean) = UIPreferences.setHideSponsors(context, hide)
+    fun getSheetDragAlphaPercent(context: Context): Int = UIPreferences.getSheetDragAlphaPercent(context)
+    fun setSheetDragAlphaPercent(context: Context, percent: Int) = UIPreferences.setSheetDragAlphaPercent(context, percent)
 
     // --- Tab Session ---
     fun getSavedTabSession(context: Context): List<TabSessionEntry> = TabSessionPreferences.getSavedTabSession(context)
@@ -100,8 +104,9 @@ object BrowserPreferences {
         durationMs: Long,
         title: String,
         artist: String,
-        artworkUrl: String?
-    ) = MediaPreferences.persistMediaCheckpoint(context, pageUrl, mediaId, positionMs, durationMs, title, artist, artworkUrl)
+        artworkUrl: String?,
+        isFullscreen: Boolean = false
+    ) = MediaPreferences.persistMediaCheckpoint(context, pageUrl, mediaId, positionMs, durationMs, title, artist, artworkUrl, isFullscreen)
     fun clearMediaCheckpoint(context: Context) = MediaPreferences.clearMediaCheckpoint(context)
 
     // --- Home Page ---

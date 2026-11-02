@@ -118,7 +118,7 @@ class BrowserUIManager(
         )
     }
 
-    private fun hideFullscreenMediaControls() {
+    fun hideFullscreenMediaControls() {
         binding.root.removeCallbacks(hideFullscreenMediaControlsRunnable)
         menuHelper.hideFullscreenMediaControls()
     }
@@ -155,6 +155,12 @@ class BrowserUIManager(
         }
         layoutParams.setMargins(margin, margin, margin, margin)
         binding.fabComposeView.layoutParams = layoutParams
+
+        // The eye lives top-left unless the FAB is already there.
+        (binding.hideUiComposeView.layoutParams as CoordinatorLayout.LayoutParams).gravity =
+            android.view.Gravity.TOP or
+                if (position == QuickActionButtonPosition.TOP_LEFT) android.view.Gravity.END else android.view.Gravity.START
+        binding.hideUiComposeView.requestLayout()
 
         val fullscreenControlLayoutParams =
             binding.fullscreenControlComposeView.layoutParams as CoordinatorLayout.LayoutParams
@@ -285,6 +291,20 @@ class BrowserUIManager(
     }
 
     fun showMenuButtonTemporarily() = callbacks.showMenuButtonTemporarily()
+
+    private var controlsDragging = false
+
+    // Fades the floating controls while the finger drags the page so the content under them stays visible.
+    // Called for every MOVE event, so only act on a change (six view animations per event otherwise).
+    fun setControlsDragging(dragging: Boolean) {
+        if (controlsDragging == dragging) return
+        controlsDragging = dragging
+        val alpha = if (dragging) BrowserPreferences.getSheetDragAlphaPercent(context) / 100f else 1f
+        listOf(
+            binding.fabComposeView, binding.hideUiComposeView, binding.mixesTabComposeView,
+            binding.voiceSearchComposeView, binding.mediaControlsComposeView, binding.fullscreenControlComposeView
+        ).forEach { it.animate().alpha(alpha).setDuration(120).start() }
+    }
 
     fun openUriExternally(uri: Uri) {
         runCatching {

@@ -21,8 +21,13 @@ import android.view.KeyEvent
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import com.kododake.aabrowser.model.BrowserMediaState
+import com.kododake.aabrowser.model.YouTubeMix
+import com.kododake.aabrowser.ui.compose.screens.menu.BrowserHideUiButton
 import com.kododake.aabrowser.ui.compose.screens.menu.BrowserMenuFab
 import com.kododake.aabrowser.ui.compose.screens.menu.BrowserMediaControls
+import com.kododake.aabrowser.ui.compose.screens.menu.BrowserMixesPanel
+import com.kododake.aabrowser.ui.compose.screens.menu.BrowserMixesTab
+import com.kododake.aabrowser.ui.compose.screens.menu.BrowserVoiceSearchButton
 import com.kododake.aabrowser.ui.compose.screens.menu.BrowserFullscreenControl
 import com.kododake.aabrowser.ui.compose.screens.menu.MediaRestoreCue
 import com.kododake.aabrowser.ui.compose.screens.menu.BrowserMenuSheet
@@ -57,6 +62,48 @@ class MenuSetupHelper {
                 BrowserMenuFab(
                     stateHolder = stateHolder,
                     onClick = onClick
+                )
+            }
+        }
+    }
+
+    fun setupHideUiButton(composeView: ComposeView, onClick: () -> Unit) {
+        composeView.apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                BrowserHideUiButton(stateHolder = stateHolder, onClick = onClick)
+            }
+        }
+    }
+
+    fun setupVoiceSearchButton(composeView: ComposeView, onClick: () -> Unit) {
+        composeView.apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                BrowserVoiceSearchButton(stateHolder = stateHolder, onClick = onClick)
+            }
+        }
+    }
+
+    fun setupMixes(
+        tabComposeView: ComposeView,
+        panelComposeView: ComposeView,
+        onOpen: () -> Unit,
+        onMixSelected: (YouTubeMix) -> Unit
+    ) {
+        tabComposeView.apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                BrowserMixesTab(stateHolder = stateHolder, onClick = onOpen)
+            }
+        }
+        panelComposeView.apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                BrowserMixesPanel(
+                    stateHolder = stateHolder,
+                    onMixSelected = onMixSelected,
+                    onDismiss = { stateHolder.isMixesPanelVisible = false }
                 )
             }
         }

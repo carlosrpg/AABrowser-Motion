@@ -164,7 +164,14 @@ internal object BrowserMediaSessionRegistry {
         val session: MediaSessionCompat
         val service: BrowserMediaBrowserService?
         synchronized(this) {
-            if (activeController !== controller) return
+            if (activeController !== controller) {
+                // Another shell (phone or car) owns the session; the one that is playing takes it over.
+                // "Most recent shell wins" alone broke the phone: Android Auto re-binds the car service after
+                // every install or process restart, so the car shell was created last and swallowed the phone's
+                // updates, leaving YouTube Music as the system's current media app.
+                if (!state.isPlaying) return
+                activeController = controller
+            }
             currentState = state
             if (updateMetadata) currentMetadata = metadata
             session = getSession(controller.applicationContext)

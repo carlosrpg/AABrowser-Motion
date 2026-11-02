@@ -26,6 +26,8 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
@@ -82,6 +84,37 @@ fun BrowserMenuFab(
                 Icon(
                     painter = painterResource(iconRes),
                     contentDescription = stringResource(descRes),
+                    modifier = Modifier.size(26.dp)
+                )
+            }
+        }
+    }
+}
+
+/** Eye button shown with the FAB; tapping it hides the temporary controls at once. */
+@Composable
+fun BrowserHideUiButton(
+    stateHolder: MenuStateHolder,
+    onClick: () -> Unit
+) {
+    AABrowserTheme {
+        AnimatedVisibility(
+            visible = stateHolder.isFabVisible || stateHolder.isFullscreenMediaControlsVisible,
+            enter = scaleIn(tween(180)) + fadeIn(tween(180)),
+            exit = scaleOut(tween(120)) + fadeOut(tween(120)),
+            modifier = Modifier.padding(6.dp)
+        ) {
+            FloatingActionButton(
+                onClick = onClick,
+                modifier = Modifier.size(56.dp),
+                shape = RoundedCornerShape(18.dp),
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 3.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.VisibilityOff,
+                    contentDescription = stringResource(R.string.menu_hide_controls),
                     modifier = Modifier.size(26.dp)
                 )
             }

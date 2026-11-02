@@ -65,6 +65,12 @@ class MenuFabController(
         }
     }
 
+    fun hideMenuButtonNow() {
+        handler.removeCallbacks(showMenuFabRunnable)
+        handler.removeCallbacks(autoHideMenuFab)
+        menuHelper.hideFab()
+    }
+
     fun cleanup() {
         handler.removeCallbacks(autoHideMenuFab)
         handler.removeCallbacks(showMenuFabRunnable)

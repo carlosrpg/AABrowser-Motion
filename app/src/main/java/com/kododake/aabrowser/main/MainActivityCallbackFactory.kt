@@ -126,6 +126,7 @@ class MainActivityCallbackFactory(
         override fun openUriExternally(uri: Uri) = provider.uiManager.openUriExternally(uri)
         override fun updateNavigationButtons() = host.onUpdateNavigationButtons()
         override fun showMenuButtonTemporarily() = host.onShowMenuButtonTemporarily()
+        override fun onPageDragChanged(dragging: Boolean) = provider.uiManager.setControlsDragging(dragging)
         override fun onReturnToMenuRequested() {
             provider.overlayCoordinator.returnToMenu()
         }

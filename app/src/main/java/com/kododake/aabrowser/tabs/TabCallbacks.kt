@@ -36,6 +36,7 @@ interface TabCallbacks {
     fun openUriExternally(uri: Uri)
     fun updateNavigationButtons()
     fun showMenuButtonTemporarily()
+    fun onPageDragChanged(dragging: Boolean)
     fun onReturnToMenuRequested() {}
     fun onDismissOverlaysRequested() {}
     fun onSheetProgress(progress: Float) {}

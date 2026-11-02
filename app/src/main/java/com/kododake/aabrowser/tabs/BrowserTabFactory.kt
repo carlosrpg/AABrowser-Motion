@@ -44,13 +44,20 @@ object BrowserTabFactory {
         onRequestSpeechMicrophone: (tabId: Long, pageUrl: String?) -> Unit,
         onSanitizeJsExternalUrl: (sourceWebView: android.webkit.WebView, rawUrl: String?) -> Uri?,
         onOpenUriExternally: (Uri) -> Unit,
-        onShowMenuButtonTemporarily: () -> Unit
+        onShowMenuButtonTemporarily: () -> Unit,
+        onPageDragChanged: (Boolean) -> Unit = {}
     ): BrowserTab {
         val tabView = object : android.webkit.WebView(context) {
             // Chromium pauses video once the window is hidden; keep it "visible" so media plays in the background.
             // Idle pages are still paused via WebView.onPause() in BrowserShellController.onPause().
             override fun onWindowVisibilityChanged(visibility: Int) {
                 if (visibility != View.GONE) super.onWindowVisibilityChanged(View.VISIBLE)
+            }
+
+            // Detaching hides the page for Chromium (pausing video); logged to diagnose car-host teardowns.
+            override fun onDetachedFromWindow() {
+                android.util.Log.i("BrowserTab", "WebView detached from window: $url")
+                super.onDetachedFromWindow()
             }
         }.apply {
             layoutParams = FrameLayout.LayoutParams(-1, -1)
@@ -82,8 +89,12 @@ object BrowserTabFactory {
         setupWebMessageListener(tabView, speechBridge)
         setupJavascriptInterface(context, tabView, onSanitizeJsExternalUrl, onOpenUriExternally)
 
-        tabView.setOnTouchListener { _, _ ->
+        tabView.setOnTouchListener { _, event ->
             onShowMenuButtonTemporarily()
+            when (event.actionMasked) {
+                android.view.MotionEvent.ACTION_MOVE -> onPageDragChanged(true)
+                android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> onPageDragChanged(false)
+            }
             false
         }
         tabView.onPause()

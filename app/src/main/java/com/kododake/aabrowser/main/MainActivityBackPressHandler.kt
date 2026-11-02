@@ -39,6 +39,8 @@ object MainActivityBackPressHandler {
         val callback = object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 when {
+                    uiManager.menuHelper.stateHolder.isMixesPanelVisible ->
+                        uiManager.menuHelper.stateHolder.isMixesPanelVisible = false
                     uiManager.isInFullscreen() -> uiManager.exitFullscreen()
                     overlayCoordinator.handleBackPressed() -> { /* Handled by coordinator */ }
                     startPageManager.isNavigating -> startPageManager.cancelNavigationLoading()

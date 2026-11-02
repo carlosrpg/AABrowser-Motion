@@ -106,7 +106,8 @@ class TabManager(
             onRequestSpeechMicrophone = callbacks::requestSpeechRecognitionMicrophoneAccess,
             onSanitizeJsExternalUrl = callbacks::sanitizeJsExternalUrl,
             onOpenUriExternally = callbacks::openUriExternally,
-            onShowMenuButtonTemporarily = callbacks::showMenuButtonTemporarily
+            onShowMenuButtonTemporarily = callbacks::showMenuButtonTemporarily,
+            onPageDragChanged = callbacks::onPageDragChanged
         )
 
         binding.webViewContainer.addView(tab.webView)

@@ -18,6 +18,7 @@
 package com.kododake.aabrowser.ui.compose.components
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
@@ -42,6 +43,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,9 +57,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import com.kododake.aabrowser.data.BrowserPreferences
 import com.kododake.aabrowser.ui.compose.theme.AABrowserTheme
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -94,10 +98,15 @@ fun ExpressiveBottomSheetContainer(
         val sheetOffsetY = remember { Animatable(if (animateEnter && !isReturning) 2000f else 0f) }
         val scrimAlpha = remember { Animatable(if (animateEnter && !isReturning) 0f else 0.45f) }
         var hasOpened by remember { mutableStateOf(!animateEnter || isReturning) }
+        val context = LocalContext.current
+        // Fades the sheet while it is being dragged so the page behind stays readable.
+        var dragAlpha by remember { mutableFloatStateOf(1f) }
+        val sheetAlpha by animateFloatAsState(dragAlpha, tween(150), label = "sheetDragAlpha")
 
         LaunchedEffect(isVisible, animateEnter, isReturning) {
             if (isVisible) {
                 hasOpened = true
+                dragAlpha = 1f
                 if (isReturning) {
                     scrimAlpha.snapTo(0.45f)
                     sheetOffsetY.snapTo(if (sheetHeight > 0) sheetHeight.toFloat() else 2000f)
@@ -182,6 +191,7 @@ fun ExpressiveBottomSheetContainer(
                     .fillMaxWidth()
                     .then(sheetModifier)
                     .offset { IntOffset(0, sheetOffsetY.value.roundToInt()) }
+                    .graphicsLayer { alpha = sheetAlpha }
                     .onSizeChanged { if (it.height > 0) sheetHeight = it.height }
                     .shadow(
                         elevation = 16.dp,
@@ -204,6 +214,9 @@ fun ExpressiveBottomSheetContainer(
             ) {
                 val dragModifier = Modifier.pointerInput(Unit) {
                     detectVerticalDragGestures(
+                        onDragStart = {
+                            dragAlpha = BrowserPreferences.getSheetDragAlphaPercent(context) / 100f
+                        },
                         onVerticalDrag = { change, dragAmount ->
                             change.consume()
                             scope.launch {
@@ -214,10 +227,12 @@ fun ExpressiveBottomSheetContainer(
                             if (sheetOffsetY.value > 140f) {
                                 onDismissRequest()
                             } else {
+                                dragAlpha = 1f
                                 scope.launch { sheetOffsetY.animateTo(0f, fastSpatialSpec) }
                             }
                         },
                         onDragCancel = {
+                            dragAlpha = 1f
                             scope.launch { sheetOffsetY.animateTo(0f, fastSpatialSpec) }
                         }
                     )

@@ -22,6 +22,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.net.Uri
+import android.os.SystemClock
 import android.provider.MediaStore
 import android.view.View
 import android.view.Window
@@ -34,11 +35,15 @@ import com.kododake.aabrowser.AppConstants.REQUEST_CODE_POST_NOTIFICATIONS
 import com.kododake.aabrowser.data.BrowserPreferences
 import com.kododake.aabrowser.databinding.ActivityMainBinding
 import com.kododake.aabrowser.model.QuickActionButtonMode
+import com.kododake.aabrowser.model.YouTubeMix
 import com.kododake.aabrowser.tabs.BrowserTab
 import com.kododake.aabrowser.ui.MainActivitySetup
 import com.kododake.aabrowser.ui.controllers.NavigationButtonUpdater
 import com.kododake.aabrowser.ui.controllers.ProgressIndicatorController
+import com.kododake.aabrowser.ui.controllers.VoiceSearchController
 import com.kododake.aabrowser.web.BrowserWebMediaController
+import com.kododake.aabrowser.web.isYouTubeUrl
+import com.kododake.aabrowser.web.youtubeSearchUrl
 import kotlinx.coroutines.CoroutineScope
 
 class BrowserShellController(
@@ -98,8 +103,18 @@ class BrowserShellController(
         onStateChanged = { state ->
             managers.uiManager.menuHelper.updateMediaState(state)
         },
-        onMediaPositionRestoreAttempted = managers.uiManager::showMediaRestoreCueTemporarily
+        onMediaPositionRestoreAttempted = managers.uiManager::showMediaRestoreCueTemporarily,
+        isFullscreen = { managers.uiManager.isInFullscreen() },
+        onYouTubePagePolled = ::refreshMixesIfStale
     )
+
+    private val voiceSearch = VoiceSearchController(
+        context = context,
+        onListeningChanged = { managers.uiManager.menuHelper.stateHolder.isVoiceSearchListening = it },
+        onQuery = { query -> managers.navigationManager.loadUrlFromIntent(youtubeSearchUrl(query)) }
+    )
+    private var voiceSearchAwaitingPermission = false
+    private var mixesLoadedAtMs = 0L
 
     private val menuFabController = MenuFabController(
         context = context,
@@ -136,6 +151,13 @@ class BrowserShellController(
                 getLatestReleaseUrl = { latestReleaseUrl },
                 updateNavigationButtons = ::updateNavigationButtons,
                 handleQuickActionButtonPressed = ::onQuickActionButtonPressed,
+                handleHideUiPressed = {
+                    menuFabController.hideMenuButtonNow()
+                    managers.uiManager.hideFullscreenMediaControls()
+                },
+                handleVoiceSearchPressed = ::onVoiceSearchPressed,
+                handleMixesTabPressed = ::onMixesTabPressed,
+                onMixSelected = ::onMixSelected,
                 showStartPage = ::showStartPage,
                 onDesktopModeChanged = { isChecked ->
                     managers.tabManager.updateDesktopMode(
@@ -209,6 +231,8 @@ class BrowserShellController(
         managers.uiManager.applyQuickActionButtonPreferences()
     }
 
+    fun isMediaPlaying(): Boolean = mediaController.isPlaying()
+
     fun onConfigurationChanged() {
         managers.uiManager.applyQuickActionButtonPreferences()
     }
@@ -224,6 +248,7 @@ class BrowserShellController(
     }
 
     fun onDestroy() {
+        voiceSearch.stop()
         mediaController.captureCurrentPosition()
         mediaController.destroy()
         menuFabController.cleanup()
@@ -236,6 +261,10 @@ class BrowserShellController(
 
     fun onRequestPermissionsResult(requestCode: Int, grantResults: IntArray) {
         managers.permissionManager.handleRequestPermissionsResult(requestCode, grantResults) { granted ->
+            if (voiceSearchAwaitingPermission) {
+                voiceSearchAwaitingPermission = false
+                if (granted) voiceSearch.start()
+            }
             val speechTab = managers.tabManager.browserTabs.firstOrNull {
                 it.id == managers.permissionManager.pendingSpeechBridgeTabId
             }
@@ -251,6 +280,10 @@ class BrowserShellController(
 
     fun handleBackPressed(): Boolean {
         val handled = when {
+            managers.uiManager.menuHelper.stateHolder.isMixesPanelVisible -> {
+                managers.uiManager.menuHelper.stateHolder.isMixesPanelVisible = false
+                true
+            }
             managers.uiManager.isInFullscreen() -> {
                 managers.uiManager.exitFullscreen()
                 true
@@ -319,6 +352,46 @@ class BrowserShellController(
         }
     }
 
+    private fun onVoiceSearchPressed() {
+        if (voiceSearch.isListening) {
+            voiceSearch.stop()
+            return
+        }
+        voiceSearchAwaitingPermission = true
+        managers.permissionManager.requestMicrophoneAccess { granted ->
+            voiceSearchAwaitingPermission = false
+            if (granted) voiceSearch.start()
+        }
+    }
+
+    private fun onMixesTabPressed() {
+        managers.uiManager.menuHelper.stateHolder.isMixesPanelVisible = true
+        refreshMixesIfStale()
+    }
+
+    // Runs on every media poll of a YouTube page, so the list is ready before the tab is tapped. An empty
+    // result retries after 2 min (a page can be polled before it is signed in or fully loaded); a found list
+    // is refreshed every 15 min. The script itself does no network work when the page is signed out.
+    private fun refreshMixesIfStale() {
+        val state = managers.uiManager.menuHelper.stateHolder
+        if (state.isMixesLoading) return
+        val ttl = if (state.mixes.isEmpty()) MIXES_RETRY_MS else MIXES_CACHE_MS
+        if (mixesLoadedAtMs != 0L && SystemClock.elapsedRealtime() - mixesLoadedAtMs < ttl) return
+        state.isMixesLoading = true
+        mediaController.loadYouTubeMixes { mixes ->
+            state.isMixesLoading = false
+            if (mixes == null) return@loadYouTubeMixes // page not ready: the next poll asks again
+            mixesLoadedAtMs = SystemClock.elapsedRealtime()
+            // A failed refresh keeps the last good list.
+            if (mixes.isNotEmpty()) state.mixes = mixes
+        }
+    }
+
+    private fun onMixSelected(mix: YouTubeMix) {
+        managers.uiManager.menuHelper.stateHolder.isMixesPanelVisible = false
+        mediaController.playYouTubeMix(mix)
+    }
+
     override fun onQuickActionButtonPressed() {
         val mode = BrowserPreferences.getQuickActionButtonMode(context)
         managers.uiManager.showMenuOverlay(
@@ -328,6 +401,7 @@ class BrowserShellController(
 
     override fun onUrlChanged(url: String) {
         currentUrl = url
+        managers.uiManager.menuHelper.stateHolder.isYouTubePage = isYouTubeUrl(url)
     }
 
     override fun onTitleChanged(title: String) {
@@ -339,6 +413,7 @@ class BrowserShellController(
         webView = tab.webView
         currentUrl = tab.currentUrl
         currentPageTitle = tab.currentTitle
+        managers.uiManager.menuHelper.stateHolder.isYouTubePage = isYouTubeUrl(tab.currentUrl)
         managers.bookmarkManager.updateBookmarkTitleIfBetter(tab.currentUrl, tab.currentTitle)
         managers.uiManager.menuHelper.updatePage(tab.currentUrl, tab.currentTitle)
     }
@@ -353,4 +428,9 @@ class BrowserShellController(
         latestReleaseUrl = latestUrl
     }
     override fun onRecreateRequested() = hostContext.recreateHost()
+
+    private companion object {
+        const val MIXES_CACHE_MS = 15 * 60 * 1_000L
+        const val MIXES_RETRY_MS = 2 * 60 * 1_000L
+    }
 }

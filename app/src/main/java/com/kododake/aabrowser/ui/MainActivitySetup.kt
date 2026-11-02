@@ -29,6 +29,7 @@ import com.kododake.aabrowser.R
 import com.kododake.aabrowser.bookmarks.BookmarkManager
 import com.kododake.aabrowser.data.BrowserPreferences
 import com.kododake.aabrowser.databinding.ActivityMainBinding
+import com.kododake.aabrowser.model.YouTubeMix
 import com.kododake.aabrowser.navigation.NavigationManager
 import com.kododake.aabrowser.startpage.StartPageManager
 import com.kododake.aabrowser.tabs.TabManager
@@ -75,6 +76,10 @@ class MainActivitySetup(
         val getLatestReleaseUrl: () -> String,
         val updateNavigationButtons: () -> Unit,
         val handleQuickActionButtonPressed: () -> Unit,
+        val handleHideUiPressed: () -> Unit = {},
+        val handleVoiceSearchPressed: () -> Unit = {},
+        val handleMixesTabPressed: () -> Unit = {},
+        val onMixSelected: (YouTubeMix) -> Unit = {},
         val showStartPage: () -> Unit,
         val onDesktopModeChanged: (Boolean) -> Unit,
         val onAddressInputFocusChanged: (Boolean) -> Unit = {},
@@ -178,6 +183,20 @@ class MainActivitySetup(
         managers.uiManager.menuHelper.setupFab(
             composeView = binding.fabComposeView,
             onClick = actions.handleQuickActionButtonPressed
+        )
+        managers.uiManager.menuHelper.setupHideUiButton(
+            composeView = binding.hideUiComposeView,
+            onClick = actions.handleHideUiPressed
+        )
+        managers.uiManager.menuHelper.setupVoiceSearchButton(
+            composeView = binding.voiceSearchComposeView,
+            onClick = actions.handleVoiceSearchPressed
+        )
+        managers.uiManager.menuHelper.setupMixes(
+            tabComposeView = binding.mixesTabComposeView,
+            panelComposeView = binding.mixesPanelComposeView,
+            onOpen = actions.handleMixesTabPressed,
+            onMixSelected = actions.onMixSelected
         )
         managers.uiManager.menuHelper.setupMediaControls(
             composeView = binding.mediaControlsComposeView,

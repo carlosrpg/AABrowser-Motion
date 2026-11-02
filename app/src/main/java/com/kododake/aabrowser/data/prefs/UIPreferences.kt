@@ -32,6 +32,26 @@ object UIPreferences {
     private const val KEY_CUSTOM_USER_AGENT = "custom_user_agent"
     private const val KEY_DESKTOP_MODE = "desktop_mode"
     private const val KEY_FULLSCREEN_MODE = "fullscreen_mode"
+    private const val KEY_SHEET_DRAG_ALPHA_PERCENT = "sheet_drag_alpha_percent"
+
+    const val MIN_SHEET_DRAG_ALPHA_PERCENT = 10
+    const val MAX_SHEET_DRAG_ALPHA_PERCENT = 100
+    // Opacity, not transparency: 20% keeps the controls barely visible while the page is dragged.
+    const val DEFAULT_SHEET_DRAG_ALPHA_PERCENT = 20
+
+    /** Opacity (percent) of a bottom sheet while the user is dragging it. */
+    fun getSheetDragAlphaPercent(context: Context): Int {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getInt(KEY_SHEET_DRAG_ALPHA_PERCENT, DEFAULT_SHEET_DRAG_ALPHA_PERCENT)
+            .coerceIn(MIN_SHEET_DRAG_ALPHA_PERCENT, MAX_SHEET_DRAG_ALPHA_PERCENT)
+    }
+
+    fun setSheetDragAlphaPercent(context: Context, percent: Int) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putInt(KEY_SHEET_DRAG_ALPHA_PERCENT, percent.coerceIn(MIN_SHEET_DRAG_ALPHA_PERCENT, MAX_SHEET_DRAG_ALPHA_PERCENT))
+            .apply()
+    }
 
     fun getQuickActionButtonMode(context: Context): QuickActionButtonMode {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

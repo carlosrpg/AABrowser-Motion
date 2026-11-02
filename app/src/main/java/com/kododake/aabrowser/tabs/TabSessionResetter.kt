@@ -54,7 +54,8 @@ object TabSessionResetter {
             onRequestSpeechMicrophone = callbacks::requestSpeechRecognitionMicrophoneAccess,
             onSanitizeJsExternalUrl = callbacks::sanitizeJsExternalUrl,
             onOpenUriExternally = callbacks::openUriExternally,
-            onShowMenuButtonTemporarily = callbacks::showMenuButtonTemporarily
+            onShowMenuButtonTemporarily = callbacks::showMenuButtonTemporarily,
+            onPageDragChanged = callbacks::onPageDragChanged
         )
 
         binding.webViewContainer.addView(newTab.webView)

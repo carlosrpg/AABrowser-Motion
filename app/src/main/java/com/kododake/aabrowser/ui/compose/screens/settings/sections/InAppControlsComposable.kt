@@ -18,6 +18,9 @@
 package com.kododake.aabrowser.ui.compose.screens.settings.sections
 
 import android.content.Context
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -29,11 +32,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.automirrored.rounded.ViewSidebar
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -46,9 +52,11 @@ import com.kododake.aabrowser.data.BrowserPreferences
 import com.kododake.aabrowser.model.QuickActionButtonMode
 import com.kododake.aabrowser.model.QuickActionButtonPosition
 import com.kododake.aabrowser.ui.compose.components.ExpressiveListItem
+import com.kododake.aabrowser.ui.compose.components.ExpressiveSlider
 import com.kododake.aabrowser.ui.compose.components.ListGroupPosition
 import com.kododake.aabrowser.ui.compose.components.bouncyClickable
 import com.kododake.aabrowser.ui.compose.screens.dialogs.ExpressiveSingleChoiceDialog
+import kotlin.math.roundToInt
 
 @Composable
 fun InAppControlsComposable(
@@ -59,6 +67,7 @@ fun InAppControlsComposable(
     var fabMode by remember { mutableStateOf(BrowserPreferences.getQuickActionButtonMode(context)) }
     var fabAlwaysVisible by remember { mutableStateOf(BrowserPreferences.isQuickActionButtonAlwaysVisible(context)) }
     var fabPos by remember { mutableStateOf(BrowserPreferences.getQuickActionButtonPosition(context)) }
+    var dragAlphaPercent by remember { mutableIntStateOf(BrowserPreferences.getSheetDragAlphaPercent(context)) }
 
     var showFabModeDialog by remember { mutableStateOf(false) }
     var showFabPosDialog by remember { mutableStateOf(false) }
@@ -120,9 +129,58 @@ fun InAppControlsComposable(
             headline = stringResource(R.string.settings_quick_action_button_position),
             supportingText = posLabel,
             leadingIcon = Icons.Rounded.Place,
-            position = ListGroupPosition.Bottom,
+            position = ListGroupPosition.Middle,
             onClick = { showFabPosDialog = true }
         )
+
+        Spacer(Modifier.height(3.dp))
+
+        Surface(
+            shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 28.dp, bottomEnd = 28.dp),
+            color = if (isSystemInDarkTheme()) {
+                MaterialTheme.colorScheme.surfaceContainerHigh
+            } else {
+                MaterialTheme.colorScheme.surfaceContainerLowest
+            },
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.settings_sheet_drag_alpha),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_sheet_drag_alpha_description),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Text(
+                        text = stringResource(R.string.settings_scale_option, dragAlphaPercent),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                ExpressiveSlider(
+                    value = dragAlphaPercent.toFloat(),
+                    onValueChange = { dragAlphaPercent = it.roundToInt() },
+                    onValueChangeFinished = {
+                        BrowserPreferences.setSheetDragAlphaPercent(context, dragAlphaPercent)
+                    },
+                    valueRange = BrowserPreferences.MIN_SHEET_DRAG_ALPHA_PERCENT.toFloat()..BrowserPreferences.MAX_SHEET_DRAG_ALPHA_PERCENT.toFloat()
+                )
+            }
+        }
     }
 
     if (showFabModeDialog) {

@@ -18,6 +18,7 @@
 package com.kododake.aabrowser.ui.controllers
 
 import android.content.Context
+import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.view.MotionEvent
@@ -72,6 +73,7 @@ class FullscreenController(
             return
         }
 
+        Log.i(TAG, "enterFullscreen")
         (view.parent as? ViewGroup)?.removeView(view)
         customView = view
         customViewCallback = callback
@@ -98,6 +100,7 @@ class FullscreenController(
         onRestoreView: () -> Unit
     ) {
         if (customView == null) return
+        Log.i(TAG, "exitFullscreen fromWebChrome=$fromWebChrome")
 
         binding.fullscreenContainer.apply {
             removeAllViews()
@@ -119,6 +122,10 @@ class FullscreenController(
         onFullscreenChanged(false)
     }
 
+    private companion object {
+        const val TAG = "FullscreenController"
+    }
+
     private class TouchAwareFullscreenContainer(
         context: Context,
         private val onFullscreenInteraction: () -> Unit
@@ -128,6 +135,15 @@ class FullscreenController(
                 onFullscreenInteraction()
             }
             return super.dispatchTouchEvent(event)
+        }
+
+        // Chromium's fullscreen view pauses the page when its window hides (car tile left for the map, app in
+        // the background); keep it "visible" exactly like the WebView subclass does. Seen on the DHU: the
+        // split-screen host's onStop hid the window, the page paused a second later and Chromium then exited
+        // fullscreen on its own. Leaving fullscreen in onPause and re-maximizing on resume was tried first and
+        // rejected: the synthesized fullscreen click is ignored by the player more often than not.
+        override fun dispatchWindowVisibilityChanged(visibility: Int) {
+            if (visibility != View.GONE) super.dispatchWindowVisibilityChanged(View.VISIBLE)
         }
     }
 }

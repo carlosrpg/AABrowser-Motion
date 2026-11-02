@@ -28,6 +28,7 @@ object MediaPreferences {
     private const val KEY_MEDIA_TITLE = "media_title"
     private const val KEY_MEDIA_ARTIST = "media_artist"
     private const val KEY_MEDIA_ARTWORK_URL = "media_artwork_url"
+    private const val KEY_MEDIA_FULLSCREEN = "media_fullscreen"
 
     data class MediaCheckpoint(
         val pageUrl: String,
@@ -36,7 +37,8 @@ object MediaPreferences {
         val durationMs: Long,
         val title: String = "",
         val artist: String = "",
-        val artworkUrl: String? = null
+        val artworkUrl: String? = null,
+        val isFullscreen: Boolean = false
     )
 
     fun getMediaCheckpoint(context: Context): MediaCheckpoint? {
@@ -52,7 +54,8 @@ object MediaPreferences {
             durationMs = preferences.getLong(KEY_MEDIA_DURATION_MS, 0L).coerceAtLeast(0L),
             title = preferences.getString(KEY_MEDIA_TITLE, null).orEmpty(),
             artist = preferences.getString(KEY_MEDIA_ARTIST, null).orEmpty(),
-            artworkUrl = preferences.getString(KEY_MEDIA_ARTWORK_URL, null)
+            artworkUrl = preferences.getString(KEY_MEDIA_ARTWORK_URL, null),
+            isFullscreen = preferences.getBoolean(KEY_MEDIA_FULLSCREEN, false)
         )
     }
 
@@ -64,7 +67,8 @@ object MediaPreferences {
         durationMs: Long,
         title: String,
         artist: String,
-        artworkUrl: String?
+        artworkUrl: String?,
+        isFullscreen: Boolean = false
     ) {
         if (!UrlFormatter.isHttpOrHttps(pageUrl) || mediaId.isBlank()) return
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -76,6 +80,7 @@ object MediaPreferences {
             .putString(KEY_MEDIA_TITLE, title)
             .putString(KEY_MEDIA_ARTIST, artist)
             .putString(KEY_MEDIA_ARTWORK_URL, artworkUrl)
+            .putBoolean(KEY_MEDIA_FULLSCREEN, isFullscreen)
             .apply()
     }
 
@@ -89,6 +94,7 @@ object MediaPreferences {
             .remove(KEY_MEDIA_TITLE)
             .remove(KEY_MEDIA_ARTIST)
             .remove(KEY_MEDIA_ARTWORK_URL)
+            .remove(KEY_MEDIA_FULLSCREEN)
             .apply()
     }
 }
