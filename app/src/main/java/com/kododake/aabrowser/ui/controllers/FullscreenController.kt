@@ -137,5 +137,11 @@ class FullscreenController(
             }
             return super.dispatchTouchEvent(event)
         }
+
+        // Chromium's fullscreen view pauses the page when its window hides (car tile left for the map, app in
+        // the background); keep it "visible" exactly like the WebView subclass does.
+        override fun dispatchWindowVisibilityChanged(visibility: Int) {
+            if (visibility != View.GONE) super.dispatchWindowVisibilityChanged(View.VISIBLE)
+        }
     }
 }

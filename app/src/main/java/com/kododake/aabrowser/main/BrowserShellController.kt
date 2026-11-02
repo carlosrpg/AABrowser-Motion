@@ -114,7 +114,6 @@ class BrowserShellController(
         onQuery = { query -> managers.navigationManager.loadUrlFromIntent(youtubeSearchUrl(query)) }
     )
     private var voiceSearchAwaitingPermission = false
-    private var restoreFullscreenOnResume = false
     private var mixesLoadedAtMs = 0L
 
     private val menuFabController = MenuFabController(
@@ -221,10 +220,6 @@ class BrowserShellController(
     fun onResume() {
         webView?.onResume()
         mediaController.startMonitoring()
-        if (restoreFullscreenOnResume) {
-            restoreFullscreenOnResume = false
-            mediaController.requestFullscreenOnce()
-        }
         managers.themeManager.applyMenuHeaderColors()
         managers.bookmarkManager.refreshBookmarks()
         managers.tabManager.refreshTabs()
@@ -247,11 +242,6 @@ class BrowserShellController(
         if (!mediaController.isPlaying()) {
             managers.uiManager.exitFullscreen()
             webView?.onPause()
-        } else if (managers.uiManager.isInFullscreen()) {
-            // A hidden window pauses Chromium's fullscreen view (our WebView ignores window visibility, that
-            // view does not), so leave fullscreen while hidden and maximize again on resume.
-            restoreFullscreenOnResume = true
-            managers.uiManager.exitFullscreen()
         }
         managers.tabManager.persistTabSession()
         runCatching { CookieManager.getInstance().flush() }

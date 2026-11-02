@@ -6,7 +6,7 @@
 - Add a Mixes tab on YouTube pages that lists the signed-in user's mixes (thumbnail and title); tapping one plays it and maximizes the player once it is playing.
 - Add a large mic button beside the temporary controls: speak a query to open the YouTube results for it.
 - Remember whether media was playing maximized and restore that together with the playback position.
-- A maximized video keeps playing when the browser window is hidden (Android Auto split-screen tile left for the map, phone app in the background): fullscreen is left while hidden and restored on return.
+- A maximized video keeps playing when the browser window is hidden (Android Auto split-screen tile left for the map, phone app in the background).
 - Android Auto (fullscreen entry): keep playing when the head unit hides Android Auto (native car UI in front); the browser is parked off-screen instead of destroyed and reattached when Android Auto returns.
 - Preserve browser media playback when the host loses focus, and save/restore the media position if the page is recreated.
 - Correct YouTube next/previous availability and actions using the player controls, including hiding unavailable actions on Shorts.
