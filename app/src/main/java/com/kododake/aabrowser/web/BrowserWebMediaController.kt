@@ -553,7 +553,7 @@ internal class BrowserWebMediaController(
         }
         publishState(newState)
         if (pendingFullscreenMediaId == newState.mediaId && newState.isPlaying && newState.hasFullscreenButton) {
-            // The click can be swallowed while the player re-renders, so retry across a few polls.
+            // The button appears late and clicks get swallowed while the player comes up, so retry for ~30 s.
             if (isFullscreen() || pendingFullscreenAttempts >= MAX_PENDING_FULLSCREEN_ATTEMPTS) {
                 Log.i(TAG, "pending fullscreen done (fullscreen=${isFullscreen()}, attempts=$pendingFullscreenAttempts)")
                 pendingFullscreenMediaId = null
@@ -886,7 +886,7 @@ internal class BrowserWebMediaController(
         const val YOUTUBE_WATCH_URL = "https://www.youtube.com/watch"
         const val YOUTUBE_VIDEO_FILTER = "EgIQAQ=="
         const val MAX_MIXES_READ_ATTEMPTS = 30
-        const val MAX_PENDING_FULLSCREEN_ATTEMPTS = 3
+        const val MAX_PENDING_FULLSCREEN_ATTEMPTS = 10
         const val MIXES_READ_INTERVAL_MS = 500L
         val YOUTUBE_VIDEO_ID_REGEX = Regex("[A-Za-z0-9_-]{11}")
         // Runs inside the signed-in YouTube page: walks ytInitialData, then asks InnerTube (signed with the
