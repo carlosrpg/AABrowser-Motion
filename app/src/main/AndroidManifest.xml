@@ -50,6 +50,10 @@
             android:launchMode="singleTop"
             android:resizeableActivity="true"
             android:theme="@style/Theme.AABrowser">
+            <!-- Android Automotive reads this per activity; the application-level entry is for Android Auto. -->
+            <meta-data
+                android:name="distractionOptimized"
+                android:value="true" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -112,6 +116,11 @@
                 <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
         </service>
+        <!-- Android Automotive only: playback service without the media-browser filter (see AutomotiveMediaPlaybackService). -->
+        <service
+            android:name=".web.AutomotiveMediaPlaybackService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
         <meta-data
             android:name="androidx.car.app.TintableAttributionIcon"
             android:resource="@drawable/ic_media_attribution" />

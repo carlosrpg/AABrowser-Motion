@@ -2,7 +2,7 @@
 
 ## Build, test, and lint
 
-Run Gradle commands from the repository root. The project uses the checked-in Gradle wrapper, Java 21, Android Gradle Plugin 9.4.1, and Android SDK 37; the minimum supported device is Android 15/API 35. Configure the Android SDK through `ANDROID_HOME` or an untracked `local.properties` entry such as `sdk.dir=C:\\Users\\<user>\\AppData\\Local\\Android\\Sdk`.
+Run Gradle commands from the repository root. The project uses the checked-in Gradle wrapper, Java 21, Android Gradle Plugin 9.4.1, and Android SDK 37; the minimum supported device is Android 11/API 30 (including Android Automotive OS 11). Configure the Android SDK through `ANDROID_HOME` or an untracked `local.properties` entry such as `sdk.dir=C:\\Users\\<user>\\AppData\\Local\\Android\\Sdk`.
 
 The current implementation targets standard Android first. The planned platform direction is to support both standard Android and Android Automotive, including a future Android Automotive 11/API 30 compatibility effort; do not assume that future work should replace standard Android support.
 
@@ -25,7 +25,7 @@ The current implementation targets standard Android first. The planned platform 
   `.\gradlew.bat app:testDebugUnitTest --tests "com.kododake.aabrowser.ExampleUnitTest.addition_isCorrect"`
 - `.\scripts\build-phone-apk.ps1` is the preferred Windows command and produces only the signed release APK. Use `-Clean` for a clean build and `-RunTests` to run unit tests first.
 - Run `.\scripts\setup-release-signing.ps1` once before the first scripted build. The ignored `release.keystore` and `local.properties` must be backed up and reused for upgrades.
-- Run all instrumentation tests on a connected API 35+ device/emulator with:
+- Run all instrumentation tests on a connected API 30+ device/emulator with:
   `.\gradlew.bat app:connectedDebugAndroidTest`
 - Run one instrumentation test with:
   `.\gradlew.bat app:connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=com.kododake.aabrowser.ExampleInstrumentedTest#useAppContext"`

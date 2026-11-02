@@ -17,8 +17,10 @@
 
 package com.kododake.aabrowser.web
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.app.PendingIntent
 import android.net.Uri
 import android.os.Handler
@@ -290,6 +292,25 @@ internal object BrowserMediaSessionRegistry {
     @Synchronized
     fun currentMetadata(): MediaMetadataCompat? = currentMetadata
 
+    private fun isAutomotive(context: Context): Boolean =
+        context.packageManager.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)
+
+    private fun playbackServiceClass(context: Context): Class<out BrowserMediaBrowserService> =
+        if (isAutomotive(context)) AutomotiveMediaPlaybackService::class.java else BrowserMediaBrowserService::class.java
+
+    /**
+     * The Android Automotive launcher lists every MediaBrowserService as its own app tile. Disable the
+     * browsable service there so only the browser shows; playback keeps its notification through
+     * [AutomotiveMediaPlaybackService]. Phones (and Android Auto projection) keep the browsable service.
+     */
+    fun hideMediaSourceOnAutomotive(context: Context) {
+        if (!isAutomotive(context)) return
+        val component = ComponentName(context, BrowserMediaBrowserService::class.java)
+        val disabled = PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+        if (context.packageManager.getComponentEnabledSetting(component) == disabled) return
+        context.packageManager.setComponentEnabledSetting(component, disabled, PackageManager.DONT_KILL_APP)
+    }
+
     private fun startBrowserService(context: Context) {
         synchronized(this) {
             if (serviceStartRequested || browserService != null) return
@@ -298,7 +319,7 @@ internal object BrowserMediaSessionRegistry {
         try {
             ContextCompat.startForegroundService(
                 context,
-                Intent(context, BrowserMediaBrowserService::class.java)
+                Intent(context, playbackServiceClass(context))
                     .setAction(BrowserMediaBrowserService.ACTION_UPDATE)
             )
         } catch (error: IllegalStateException) {

@@ -83,7 +83,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.URL
 
-/** Pill shown with the FAB on YouTube pages; opens the mixes grid. */
+/** Pill shown with the FAB once any mix has loaded, on any site; opens the mixes grid. */
 @Composable
 fun BrowserMixesTab(
     stateHolder: MenuStateHolder,
@@ -91,7 +91,7 @@ fun BrowserMixesTab(
 ) {
     AABrowserTheme {
         AnimatedVisibility(
-            visible = stateHolder.isYouTubePage && !stateHolder.isMixesPanelVisible &&
+            visible = stateHolder.mixes.isNotEmpty() && !stateHolder.isMixesPanelVisible &&
                 (stateHolder.isFabVisible || stateHolder.isFullscreenMediaControlsVisible),
             enter = scaleIn(tween(180)) + fadeIn(tween(180)),
             exit = scaleOut(tween(120)) + fadeOut(tween(120)),

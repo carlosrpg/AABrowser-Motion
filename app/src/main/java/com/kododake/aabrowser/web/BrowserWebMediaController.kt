@@ -36,6 +36,7 @@ import android.support.v4.media.session.PlaybackStateCompat
 import com.kododake.aabrowser.data.BrowserPreferences
 import com.kododake.aabrowser.model.BrowserMediaState
 import com.kododake.aabrowser.model.YouTubeMix
+import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -784,7 +785,17 @@ internal class BrowserWebMediaController(
             connection.readTimeout = ARTWORK_TIMEOUT_MS
             connection.instanceFollowRedirects = true
             if (connection.contentLengthLong > MAX_ARTWORK_BYTES) return null
-            val bytes = connection.inputStream.use { it.readNBytes(MAX_ARTWORK_BYTES + 1) }
+            // InputStream.readNBytes is API 33; read at most MAX_ARTWORK_BYTES + 1 by hand for API 30.
+            val bytes = connection.inputStream.use { input ->
+                val out = ByteArrayOutputStream()
+                val buffer = ByteArray(8 * 1024)
+                while (out.size() <= MAX_ARTWORK_BYTES) {
+                    val read = input.read(buffer, 0, minOf(buffer.size, MAX_ARTWORK_BYTES + 1 - out.size()))
+                    if (read < 0) break
+                    out.write(buffer, 0, read)
+                }
+                out.toByteArray()
+            }
             if (bytes.size > MAX_ARTWORK_BYTES) return null
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)

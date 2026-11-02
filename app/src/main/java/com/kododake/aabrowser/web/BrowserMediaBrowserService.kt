@@ -41,7 +41,7 @@ import com.kododake.aabrowser.R
 import com.kododake.aabrowser.data.BrowserPreferences
 import com.kododake.aabrowser.model.BrowserMediaState
 
-class BrowserMediaBrowserService : MediaBrowserServiceCompat() {
+open class BrowserMediaBrowserService : MediaBrowserServiceCompat() {
     private lateinit var mediaSession: MediaSessionCompat
     private var isForeground = false
     private var lastNotificationKey: String? = null
@@ -274,7 +274,7 @@ class BrowserMediaBrowserService : MediaBrowserServiceCompat() {
         PendingIntent.getService(
             this,
             requestCode,
-            Intent(this, BrowserMediaBrowserService::class.java).setAction(action),
+            Intent(this, javaClass).setAction(action),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 

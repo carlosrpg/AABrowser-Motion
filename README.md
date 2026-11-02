@@ -1,6 +1,6 @@
 # Motion
 
-Motion is an Android 15+ WebView browser for Android Auto projection, maintained by [carlosrpg](https://github.com/carlosrpg).
+Motion is an Android 11+ WebView browser for Android Auto projection and Android Automotive OS, maintained by [carlosrpg](https://github.com/carlosrpg).
 
 This repository is a fork of [kododake/AABrowser](https://github.com/kododake/AABrowser). The original project and its contributors remain the source of the core browser implementation; fork-specific changes are maintained in this repository under GPLv3.
 
@@ -22,9 +22,17 @@ Phone voice search is declared as the `actions.intent.PLAY_MEDIA` App Action in 
 
 ## Requirements
 
-- Android 15/API 35 or newer
+- Android 11/API 30 or newer (phones, and Android Automotive OS 11+ head units)
 - Java 21
 - Android SDK 37
+
+### Android Automotive
+
+The same APK runs on Android Automotive OS 11+ head units. Production car builds only let an app run while driving if it was installed from a store the car allows, so a sideloaded APK shows "can't be used while driving" unless the installer is recorded as one, usually the Play Store:
+
+```bash
+adb install -r -i com.android.vending Motion-<version>.apk
+```
 
 ## Build
 

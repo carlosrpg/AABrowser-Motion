@@ -1,6 +1,11 @@
 # Changelog
 
 ## Unreleased
+- Default bookmarks are now the start page quick links; untouched old default bookmarks are replaced, customized ones are kept.
+- The floating mic (voice search) button shows only on YouTube pages.
+- The Mixes button shows on any site once mixes have been loaded from YouTube (and stays hidden until then).
+- Android Automotive: hide the extra media tile in the car launcher and allow the browser while driving (when installed from a permitted store).
+- Support Android 11/API 30 and newer (was Android 15), so the same APK installs on Android Automotive OS 11 head units.
 - Add an eye button beside the temporary controls that hides the menu button and media controls immediately.
 - Fade bottom sheets while they are being dragged (opacity configurable under In-app controls, default 20%) so the page behind stays visible.
 - Add a Mixes tab on YouTube pages that lists the signed-in user's mixes (thumbnail and title); tapping one plays it and maximizes the player once it is playing.
