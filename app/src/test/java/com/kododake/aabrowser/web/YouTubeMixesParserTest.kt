@@ -37,6 +37,13 @@ class YouTubeMixesParserTest {
     }
 
     @Test
+    fun partialResultsAreAcceptedOnlyWhenAsked() {
+        val payload = encoded("""{"done":false,"items":[{"title":"x","thumbnail":"https://i.ytimg.com/x.jpg","videoId":"abcdefghijk","playlistId":"RDabc"}]}""")
+        assertNull(YouTubeMixesParser.parse(payload))
+        assertEquals(1, YouTubeMixesParser.parse(payload, acceptPartial = true)!!.mixes.size)
+    }
+
+    @Test
     fun doneWithoutItemsIsEmpty() {
         val outcome = YouTubeMixesParser.parse(encoded("""{"done":true}"""))!!
         assertTrue(outcome.mixes.isEmpty())

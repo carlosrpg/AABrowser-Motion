@@ -32,14 +32,17 @@ internal object YouTubeMixesParser {
     /** [pageNotReady]: YouTube's page config was not there yet, so the result says nothing; retry later. */
     data class Outcome(val mixes: List<YouTubeMix>, val pageNotReady: Boolean)
 
-    /** [result] is raw `WebView.evaluateJavascript` output; null means the page is still fetching. */
-    fun parse(result: String?): Outcome? {
+    /**
+     * [result] is raw `WebView.evaluateJavascript` output; null means the page is still fetching
+     * (unless [acceptPartial], which takes whatever the page has gathered so far).
+     */
+    fun parse(result: String?, acceptPartial: Boolean = false): Outcome? {
         val payload = runCatching {
             var element = Json.parseToJsonElement(result ?: "null")
             if (element is JsonPrimitive && element.isString) element = Json.parseToJsonElement(element.content)
             element as? JsonObject
         }.getOrNull() ?: return null
-        if ((payload["done"] as? JsonPrimitive)?.booleanOrNull != true) return null
+        if ((payload["done"] as? JsonPrimitive)?.booleanOrNull != true && !acceptPartial) return null
         val notReady = (payload["notReady"] as? JsonPrimitive)?.booleanOrNull == true
         val items = payload["items"] as? JsonArray ?: return Outcome(emptyList(), notReady)
         val mixes = items.mapNotNull { item ->

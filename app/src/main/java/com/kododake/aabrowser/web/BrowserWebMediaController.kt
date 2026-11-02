@@ -419,13 +419,14 @@ internal class BrowserWebMediaController(
                 }
                 current.evaluateJavascript(YOUTUBE_MIXES_READ_SCRIPT) { result ->
                     if (isDestroyed || requestId != mixesRequestId) return@evaluateJavascript
-                    val outcome = YouTubeMixesParser.parse(result)
+                    val timedOut = ++attempts >= MAX_MIXES_READ_ATTEMPTS
+                    val outcome = YouTubeMixesParser.parse(result, acceptPartial = timedOut)
                     when {
                         outcome != null -> {
-                            Log.i(TAG, "YouTube mixes: ${outcome.mixes.size} found (page ready=${!outcome.pageNotReady})")
+                            Log.i(TAG, "YouTube mixes: ${outcome.mixes.size} found (page ready=${!outcome.pageNotReady}, partial=$timedOut)")
                             onResult(if (outcome.pageNotReady) null else outcome.mixes)
                         }
-                        ++attempts < MAX_MIXES_READ_ATTEMPTS -> handler.postDelayed(this, MIXES_READ_INTERVAL_MS)
+                        !timedOut -> handler.postDelayed(this, MIXES_READ_INTERVAL_MS)
                         else -> onResult(emptyList())
                     }
                 }
@@ -886,7 +887,7 @@ internal class BrowserWebMediaController(
         const val YOUTUBE_SEARCH_URL = "https://www.youtube.com/results"
         const val YOUTUBE_WATCH_URL = "https://www.youtube.com/watch"
         const val YOUTUBE_VIDEO_FILTER = "EgIQAQ=="
-        const val MAX_MIXES_READ_ATTEMPTS = 30
+        const val MAX_MIXES_READ_ATTEMPTS = 120
         const val MAX_PENDING_FULLSCREEN_ATTEMPTS = 10
         const val MIXES_READ_INTERVAL_MS = 500L
         val YOUTUBE_VIDEO_ID_REGEX = Regex("[A-Za-z0-9_-]{11}")
@@ -1015,6 +1016,8 @@ internal class BrowserWebMediaController(
                 const walkPages = function(response, pagesLeft) {
                   const before = mixes.size;
                   walk(response, 0);
+                  // Partial list, so a slow network still yields something when the host stops waiting.
+                  state.items = Array.from(mixes.values()).filter(function(m) { return !!m.videoId; });
                   const token = continuationToken(response);
                   if (!token || pagesLeft <= 0 || mixes.size >= 60 || (mixes.size === before && pagesLeft < 8)) {
                     return Promise.resolve();

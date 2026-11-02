@@ -21,6 +21,10 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.LruCache
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -58,7 +62,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -90,6 +99,7 @@ fun BrowserMixesTab(
         ) {
             ExtendedFloatingActionButton(
                 onClick = onClick,
+                modifier = Modifier.loadingBorder(active = stateHolder.isMixesLoading, cornerRadius = 18.dp),
                 shape = RoundedCornerShape(18.dp),
                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -97,6 +107,39 @@ fun BrowserMixesTab(
                 text = { Text(stringResource(R.string.mixes_tab)) }
             )
         }
+    }
+}
+
+/** A highlight that sweeps around the edge while [active], the "still loading" cue for the Mixes tab. */
+@Composable
+private fun Modifier.loadingBorder(active: Boolean, cornerRadius: androidx.compose.ui.unit.Dp): Modifier {
+    if (!active) return this
+    val phase by rememberInfiniteTransition(label = "mixesLoading").animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1400, easing = LinearEasing)),
+        label = "mixesLoadingPhase"
+    )
+    val highlight = MaterialTheme.colorScheme.primary
+    return drawWithContent {
+        drawContent()
+        // Sweep gradient stops cannot rotate, so slide a highlight window along the sweep instead.
+        val width = 0.3f
+        val start = phase
+        val end = (phase + width) % 1f
+        val stops = if (start < end) {
+            arrayOf(0f to Color.Transparent, start to Color.Transparent, (start + end) / 2f to highlight,
+                end to Color.Transparent, 1f to Color.Transparent)
+        } else {
+            arrayOf(0f to highlight.copy(alpha = (end / width)), end to Color.Transparent,
+                start to Color.Transparent, 1f to highlight.copy(alpha = (1f - start) / width))
+        }
+        val stroke = 2.5.dp.toPx()
+        drawRoundRect(
+            brush = Brush.sweepGradient(colorStops = stops, center = center),
+            cornerRadius = CornerRadius(cornerRadius.toPx()),
+            style = Stroke(width = stroke)
+        )
     }
 }
 
