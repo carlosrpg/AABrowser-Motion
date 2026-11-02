@@ -660,11 +660,12 @@ internal class BrowserWebMediaController(
         return true
     }
 
+    // In-memory only: the phone and car shells each restore from the same checkpoint, and the next poll
+    // overwrites it anyway, so clearing it here would rob the other shell of its restore.
     private fun clearMediaPositionRestore() {
         pendingMediaRestore = null
         mediaPositionRestoreAttempts = 0
         mediaPositionRestoreSeekIssued = false
-        BrowserPreferences.clearMediaCheckpoint(applicationContext)
     }
 
     private fun createSeekScript(positionSeconds: Double): String =
