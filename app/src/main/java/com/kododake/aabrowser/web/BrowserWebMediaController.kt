@@ -380,6 +380,11 @@ internal class BrowserWebMediaController(
         execute(FULLSCREEN_SCRIPT)
     }
 
+    /** Maximizes the current media once it is playing again (used after leaving fullscreen on pause). */
+    fun requestFullscreenOnce() {
+        pendingFullscreenMediaId = mediaState.mediaId.takeIf { mediaState.isAvailable }
+    }
+
     /** Opens the mix, starts it, and maximizes the player once it is playing. */
     fun playYouTubeMix(mix: YouTubeMix) {
         val webView = getWebView() ?: return
