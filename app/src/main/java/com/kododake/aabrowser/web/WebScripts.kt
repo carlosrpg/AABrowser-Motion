@@ -93,4 +93,143 @@ object WebScripts {
             }
         })();
     """.trimIndent()
+
+    // Adapted from FermataX (YoutubeScripts ADBLOCK_CSS + NETWORK_ADBLOCK). Must run at document start so the
+    // ytInitialPlayerResponse trap is installed before YouTube's inline script assigns it. Shorts shelves are
+    // deliberately not hidden, and nothing here mutes, seeks or pauses the video.
+    val YOUTUBE_AD_BLOCK_JS = """
+        (function() {
+          if (window.__aaBrowserYouTubeAdBlock) return;
+          window.__aaBrowserYouTubeAdBlock = true;
+
+          var cssId = 'aabrowser-youtube-adblock-css';
+          var css = '.video-ads, .ytp-ad-player-overlay, ytm-promoted-sparkles-web-renderer, ytm-promoted-video-renderer, ' +
+              'ytm-compact-promoted-video-renderer, ytd-ad-slot-renderer, ytd-in-feed-ad-layout-renderer, ' +
+              'ytm-companion-slot, #player-ads, #masthead-ad, .ytp-ad-module, .ytp-ad-overlay-container, ' +
+              'ad-slot-renderer, [class*="ad-showing"] .ad-interrupting { display: none !important; } ' +
+              '.html5-video-player.ad-showing video, video.ad-showing, .ad-showing .html5-main-video { opacity: 0 !important; }';
+          function injectCss() {
+            if (document.getElementById(cssId)) return;
+            var head = document.head || document.documentElement;
+            if (!head) return;
+            var s = document.createElement('style');
+            s.id = cssId;
+            s.textContent = css;
+            head.appendChild(s);
+          }
+          injectCss();
+          if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', injectCss);
+
+          var AD_FIELDS = ['adPlacements', 'playerAds', 'adSlots', 'adBreakHeartbeatParams', 'adParams'];
+          var AD_RENDERERS = [
+            'adSlotRenderer', 'displayAdRenderer', 'promotedVideoRenderer',
+            'compactPromotedVideoRenderer', 'promotedSparklesWebRenderer',
+            'promotedSparklesTextSearchRenderer', 'inFeedAdLayoutRenderer',
+            'adsEngagementPanelRenderer', 'playerLegacyDesktopWatchAdsRenderer',
+            'searchPyvRenderer', 'bannerPromoRenderer', 'statementBannerRenderer'
+          ];
+          function isAdItem(node) {
+            if (!node || typeof node !== 'object') return false;
+            for (var i = 0; i < AD_RENDERERS.length; i++) {
+              if (Object.prototype.hasOwnProperty.call(node, AD_RENDERERS[i])) return true;
+            }
+            return false;
+          }
+          function strip(node, depth) {
+            if (depth > 30 || !node || typeof node !== 'object') return node;
+            if (Array.isArray(node)) {
+              var out = [];
+              for (var i = 0; i < node.length; i++) {
+                if (!isAdItem(node[i])) out.push(strip(node[i], depth + 1));
+              }
+              return out;
+            }
+            for (var f = 0; f < AD_FIELDS.length; f++) {
+              if (Object.prototype.hasOwnProperty.call(node, AD_FIELDS[f])) delete node[AD_FIELDS[f]];
+            }
+            for (var k in node) {
+              if (Object.prototype.hasOwnProperty.call(node, k)) node[k] = strip(node[k], depth + 1);
+            }
+            return node;
+          }
+          function cleanBody(text) {
+            if (typeof text !== 'string') return text;
+            var hit = false;
+            for (var i = 0; i < AD_FIELDS.length && !hit; i++) {
+              if (text.indexOf('"' + AD_FIELDS[i] + '"') !== -1) hit = true;
+            }
+            for (var j = 0; j < AD_RENDERERS.length && !hit; j++) {
+              if (text.indexOf('"' + AD_RENDERERS[j] + '"') !== -1) hit = true;
+            }
+            if (!hit) return text;
+            try { return JSON.stringify(strip(JSON.parse(text), 0)); }
+            catch (e) { return text; }
+          }
+          function guardGlobal(name) {
+            var stored;
+            try {
+              if (Object.prototype.hasOwnProperty.call(window, name)) stored = strip(window[name], 0);
+              Object.defineProperty(window, name, {
+                configurable: true, enumerable: true,
+                get: function() { return stored; },
+                set: function(v) { stored = (v && typeof v === 'object') ? strip(v, 0) : v; }
+              });
+            } catch (e) {
+              try { window[name] = strip(window[name], 0); } catch (e2) {}
+            }
+          }
+          guardGlobal('ytInitialPlayerResponse');
+
+          // Only the player endpoints are rewritten; browse/next (used by the Mixes tab) pass through untouched.
+          var API = /\/youtubei\/v1\/(player|get_watch)/;
+          var nativeFetch = window.fetch;
+          if (nativeFetch) {
+            window.fetch = function() {
+              var args = arguments;
+              var url = '';
+              try {
+                var a0 = args[0];
+                url = (a0 && a0.url) ? a0.url : String(a0);
+              } catch (e) { url = ''; }
+              var p = nativeFetch.apply(this, args);
+              if (!API.test(url)) return p;
+              return p.then(function(res) {
+                if (!res.ok) return res;
+                return res.clone().text().then(function(body) {
+                  var cleaned = cleanBody(body);
+                  if (cleaned === body) return res;
+                  return new Response(cleaned, { status: res.status, statusText: res.statusText, headers: res.headers });
+                }).catch(function() { return res; });
+              });
+            };
+          }
+          try {
+            var open = XMLHttpRequest.prototype.open;
+            XMLHttpRequest.prototype.open = function(method, url) {
+              this.__aaBrowserUrl = url;
+              return open.apply(this, arguments);
+            };
+            var send = XMLHttpRequest.prototype.send;
+            XMLHttpRequest.prototype.send = function() {
+              var xhr = this;
+              if (xhr.__aaBrowserUrl && API.test(String(xhr.__aaBrowserUrl))) {
+                xhr.addEventListener('readystatechange', function() {
+                  if (xhr.readyState !== 4) return;
+                  try {
+                    if (typeof xhr.responseText !== 'string') return;
+                    var cleaned = cleanBody(xhr.responseText);
+                    if (cleaned !== xhr.responseText) {
+                      Object.defineProperty(xhr, 'responseText', { value: cleaned, configurable: true });
+                      Object.defineProperty(xhr, 'response', { value: cleaned, configurable: true });
+                    }
+                  } catch (e) {}
+                });
+              }
+              return send.apply(this, arguments);
+            };
+          } catch (e) {}
+        })();
+    """.trimIndent()
+
+    val YOUTUBE_AD_BLOCK_ORIGINS = setOf("https://youtube.com", "https://*.youtube.com")
 }

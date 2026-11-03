@@ -23,6 +23,7 @@ import com.kododake.aabrowser.settings.SettingsCallbacks
 import com.kododake.aabrowser.startpage.StartPageManager
 import com.kododake.aabrowser.tabs.TabManager
 import com.kododake.aabrowser.web.updateDrmL3Enforcer
+import com.kododake.aabrowser.web.updateYouTubeAdBlock
 
 object SettingsCallbacksFactory {
 
@@ -43,6 +44,12 @@ object SettingsCallbacksFactory {
                 val enabled = BrowserPreferences.isDrmL3EnforcerEnabled(context)
                 tabManager.browserTabs.forEach { tab ->
                     tab.webView.updateDrmL3Enforcer(enabled)
+                }
+            },
+            onYouTubeAdBlockChanged = {
+                val enabled = BrowserPreferences.isYouTubeAdBlockEnabled(context)
+                tabManager.browserTabs.forEach { tab ->
+                    tab.webView.updateYouTubeAdBlock(enabled)
                 }
             },
             onUserAgentChanged = {

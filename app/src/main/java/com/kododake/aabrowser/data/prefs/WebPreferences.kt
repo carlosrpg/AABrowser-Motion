@@ -23,6 +23,8 @@ object WebPreferences {
     const val PREFS_NAME = "browser_prefs"
     private const val KEY_DRM_L3_ENFORCER = "drm_l3_enforcer_enabled"
     const val DEFAULT_DRM_L3_ENFORCER = true
+    private const val KEY_YOUTUBE_AD_BLOCK = "youtube_ad_block_enabled"
+    const val DEFAULT_YOUTUBE_AD_BLOCK = false
 
     fun isDrmL3EnforcerEnabled(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -33,6 +35,18 @@ object WebPreferences {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .putBoolean(KEY_DRM_L3_ENFORCER, enabled)
+            .apply()
+    }
+
+    fun isYouTubeAdBlockEnabled(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean(KEY_YOUTUBE_AD_BLOCK, DEFAULT_YOUTUBE_AD_BLOCK)
+    }
+
+    fun setYouTubeAdBlockEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_YOUTUBE_AD_BLOCK, enabled)
             .apply()
     }
 }

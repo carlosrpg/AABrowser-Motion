@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- New optional "Block YouTube ads" setting (off by default) removes YouTube ads while keeping YouTube's own player.
 - Default bookmarks are now the start page quick links; untouched old default bookmarks are replaced, customized ones are kept.
 - The floating mic (voice search) button shows only on YouTube pages.
 - The Mixes button shows on any site once mixes have been loaded from YouTube (and stays hidden until then).

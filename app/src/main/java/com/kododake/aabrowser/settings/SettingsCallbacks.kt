@@ -28,6 +28,7 @@ data class SettingsCallbacks(
     val onClearStartPageBackground: (() -> Unit)? = null,
     val onSponsorsVisibilityChanged: () -> Unit = {},
     val onDrmL3EnforcerChanged: () -> Unit = {},
+    val onYouTubeAdBlockChanged: () -> Unit = {},
     val onUserAgentChanged: () -> Unit = {}
 )
 

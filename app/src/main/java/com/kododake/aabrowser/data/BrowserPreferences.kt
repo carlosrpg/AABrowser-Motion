@@ -147,4 +147,6 @@ object BrowserPreferences {
     // --- Web Engine & DRM ---
     fun isDrmL3EnforcerEnabled(context: Context): Boolean = WebPreferences.isDrmL3EnforcerEnabled(context)
     fun setDrmL3EnforcerEnabled(context: Context, enabled: Boolean) = WebPreferences.setDrmL3EnforcerEnabled(context, enabled)
+    fun isYouTubeAdBlockEnabled(context: Context): Boolean = WebPreferences.isYouTubeAdBlockEnabled(context)
+    fun setYouTubeAdBlockEnabled(context: Context, enabled: Boolean) = WebPreferences.setYouTubeAdBlockEnabled(context, enabled)
 }

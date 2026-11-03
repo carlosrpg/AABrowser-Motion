@@ -154,6 +154,8 @@
     <string name="settings_site_data_description">Gerencie permissões salvas, cookies e dados locais dos sites armazenados pelo navegador.</string>
     <string name="settings_drm_l3_enforcer">Forçar Widevine L3 para DRM</string>
     <string name="settings_drm_l3_enforcer_description">Força a compatibilidade com Widevine L3 para resolver tela preta ou falhas de reprodução em dispositivos incompatíveis.\nAtivado por padrão.</string>
+    <string name="settings_youtube_ad_block">Bloquear anúncios do YouTube</string>
+    <string name="settings_youtube_ad_block_description">Remove anúncios das páginas e vídeos do YouTube. Desative se o YouTube mostrar avisos ou os vídeos pararem de carregar.\nDesativado por padrão.</string>
     <string name="settings_clear_site_permissions">Redefinir permissões salvas dos sites</string>
     <string name="settings_clear_cookies">Excluir cookies e dados dos sites</string>
     <string name="settings_clear_http_hosts">Redefinir domínios HTTP permitidos</string>

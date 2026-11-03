@@ -202,6 +202,7 @@ fun SettingsScreen(
                     PrivacyAndAboutComposable(
                         context = context,
                         onDrmL3EnforcerChanged = callbacks.onDrmL3EnforcerChanged,
+                        onYouTubeAdBlockChanged = callbacks.onYouTubeAdBlockChanged,
                         onUserAgentChanged = callbacks.onUserAgentChanged
                     )
 
