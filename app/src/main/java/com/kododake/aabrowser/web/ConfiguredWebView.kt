@@ -50,7 +50,8 @@ fun configureWebView(
     callbacks: BrowserCallbacks = BrowserCallbacks(),
     useDesktopMode: Boolean = false,
     userAgentProfile: UserAgentProfile = UserAgentProfile.ANDROID_CHROME,
-    enableDrmL3Enforcer: Boolean = true
+    enableDrmL3Enforcer: Boolean = true,
+    enableYouTubeAdBlock: Boolean = false
 ) {
     with(webView) {
         setBackgroundColor(Color.TRANSPARENT)
@@ -59,6 +60,7 @@ fun configureWebView(
             val handler = WebViewCompat.addDocumentStartJavaScript(this, WebScripts.DRM_L3_ENFORCER_JS, setOf("*"))
             setTag(R.id.webview_drm_l3_script_handler_tag, handler)
         }
+        if (enableYouTubeAdBlock) updateYouTubeAdBlock(enabled = true, reload = false)
 
         isHorizontalScrollBarEnabled = false
         isVerticalScrollBarEnabled = true
@@ -242,6 +244,27 @@ fun WebView.updateDrmL3Enforcer(enabled: Boolean, reload: Boolean = true) {
         }
     }
     if (reload) {
+        reload()
+    }
+}
+
+// shortcut: no onPageFinished fallback like the DRM script has, since the player-response trap only works at
+// document start; WebViews without DOCUMENT_START_SCRIPT simply keep ads.
+fun WebView.updateYouTubeAdBlock(enabled: Boolean, reload: Boolean = true) {
+    if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) return
+    val existingHandler = getTag(R.id.webview_youtube_ad_block_script_handler_tag) as? ScriptHandler
+    if (enabled == (existingHandler != null)) return
+    if (enabled) {
+        val handler = WebViewCompat.addDocumentStartJavaScript(
+            this, WebScripts.YOUTUBE_AD_BLOCK_JS, WebScripts.YOUTUBE_AD_BLOCK_ORIGINS
+        )
+        setTag(R.id.webview_youtube_ad_block_script_handler_tag, handler)
+    } else {
+        existingHandler?.remove()
+        setTag(R.id.webview_youtube_ad_block_script_handler_tag, null)
+    }
+    // Only YouTube pages run the script, so other sites keep their state.
+    if (reload && Uri.parse(url.orEmpty()).host.orEmpty().let { it == "youtube.com" || it.endsWith(".youtube.com") }) {
         reload()
     }
 }

@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Devices
@@ -69,12 +70,14 @@ import com.kododake.aabrowser.web.SslErrorHandlerHelper
 fun PrivacyAndAboutComposable(
     context: Context,
     onDrmL3EnforcerChanged: () -> Unit = {},
+    onYouTubeAdBlockChanged: () -> Unit = {},
     onUserAgentChanged: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var userAgent by remember { mutableStateOf(BrowserPreferences.getUserAgentProfile(context)) }
     var customUserAgent by remember { mutableStateOf(BrowserPreferences.getCustomUserAgent(context)) }
     var drmL3Enabled by remember { mutableStateOf(BrowserPreferences.isDrmL3EnforcerEnabled(context)) }
+    var youTubeAdBlockEnabled by remember { mutableStateOf(BrowserPreferences.isYouTubeAdBlockEnabled(context)) }
     var showUaDialog by remember { mutableStateOf(false) }
     var showCustomUaDialog by remember { mutableStateOf(false) }
     var showClearCookiesDialog by remember { mutableStateOf(false) }
@@ -129,6 +132,31 @@ fun PrivacyAndAboutComposable(
                 drmL3Enabled = next
                 BrowserPreferences.setDrmL3EnforcerEnabled(context, next)
                 onDrmL3EnforcerChanged()
+            }
+        )
+
+        Spacer(Modifier.height(3.dp))
+
+        ExpressiveListItem(
+            headline = stringResource(R.string.settings_youtube_ad_block),
+            supportingText = stringResource(R.string.settings_youtube_ad_block_description),
+            leadingIcon = Icons.Rounded.Block,
+            position = ListGroupPosition.Middle,
+            trailingContent = {
+                Switch(
+                    checked = youTubeAdBlockEnabled,
+                    onCheckedChange = { checked ->
+                        youTubeAdBlockEnabled = checked
+                        BrowserPreferences.setYouTubeAdBlockEnabled(context, checked)
+                        onYouTubeAdBlockChanged()
+                    }
+                )
+            },
+            onClick = {
+                val next = !youTubeAdBlockEnabled
+                youTubeAdBlockEnabled = next
+                BrowserPreferences.setYouTubeAdBlockEnabled(context, next)
+                onYouTubeAdBlockChanged()
             }
         )
 

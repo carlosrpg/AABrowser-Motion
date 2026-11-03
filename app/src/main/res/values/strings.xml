@@ -153,6 +153,8 @@
     <string name="settings_site_data_description">Manage saved site permissions, cookies, and local site data stored by the browser.</string>
     <string name="settings_drm_l3_enforcer">DRM Widevine L3 enforcer</string>
     <string name="settings_drm_l3_enforcer_description">Enforces Widevine L3 compatibility to resolve black screen or playback failures on unsupported hardware.\nEnabled by default.</string>
+    <string name="settings_youtube_ad_block">Block YouTube ads</string>
+    <string name="settings_youtube_ad_block_description">Removes ads from YouTube pages and videos. Turn it off if YouTube shows warnings or videos stop loading.\nDisabled by default.</string>
     <string name="settings_clear_site_permissions">Reset saved site permissions</string>
     <string name="settings_clear_cookies">Delete cookies and site data</string>
     <string name="settings_clear_http_hosts">Reset HTTP allowed hosts</string>

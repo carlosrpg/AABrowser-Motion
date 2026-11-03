@@ -84,7 +84,8 @@ object BrowserTabFactory {
             createBrowserCallbacks(tab),
             BrowserPreferences.shouldUseDesktopMode(context),
             BrowserPreferences.getUserAgentProfile(context),
-            BrowserPreferences.isDrmL3EnforcerEnabled(context)
+            BrowserPreferences.isDrmL3EnforcerEnabled(context),
+            BrowserPreferences.isYouTubeAdBlockEnabled(context)
         )
         setupWebMessageListener(tabView, speechBridge)
         setupJavascriptInterface(context, tabView, onSanitizeJsExternalUrl, onOpenUriExternally)
