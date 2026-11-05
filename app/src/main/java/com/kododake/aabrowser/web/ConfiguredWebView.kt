@@ -65,7 +65,8 @@ fun configureWebView(
         isHorizontalScrollBarEnabled = false
         isVerticalScrollBarEnabled = true
 
-        WebView.setWebContentsDebuggingEnabled(false)
+        // Debug builds only: lets chrome://inspect / adb DevTools read page console and network on the head unit.
+        WebView.setWebContentsDebuggingEnabled(com.kododake.aabrowser.BuildConfig.DEBUG)
 
         val originalUserAgent = settings.userAgentString
         setTag(R.id.webview_original_user_agent_tag, originalUserAgent)
