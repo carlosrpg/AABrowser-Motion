@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- This flavor bundles GeckoView for arm64 head units only; phones and Android Auto use the standard APK. -->
+    <uses-feature
+        android:name="android.hardware.type.automotive"
+        android:required="true" />
+
+    <application>
+        <!-- Google sign-in on bundled GeckoView: the head unit's system WebView is too old for Google to accept. -->
+        <activity
+            android:name=".gecko.GeckoSignInActivity"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|density|uiMode|layoutDirection|locale"
+            android:exported="false"
+            android:label="@string/gecko_sign_in_title"
+            android:resizeableActivity="true"
+            android:theme="@style/Theme.AABrowser"
+            android:windowSoftInputMode="adjustResize">
+            <meta-data
+                android:name="distractionOptimized"
+                android:value="true" />
+        </activity>
+    </application>
+</manifest>

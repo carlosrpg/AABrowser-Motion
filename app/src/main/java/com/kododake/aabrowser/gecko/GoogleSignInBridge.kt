@@ -58,9 +58,12 @@ object GoogleSignInBridge {
     private var requester: WeakReference<WebView>? = null
     private var lastCompletedAt = 0L
 
-    /** Only Android Automotive head units need GeckoView: phones (and Android Auto, which runs on the phone) keep WebView sign-in. */
+    /**
+     * Only the automotive flavor bundles GeckoView, and only head units need it: phones (and Android Auto,
+     * which runs on the phone) keep WebView sign-in.
+     */
     fun isEnabled(context: Context): Boolean =
-        context.packageManager.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)
+        GeckoSupport.AVAILABLE && context.packageManager.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)
 
     /** Sign-in pages Gecko takes over must never be saved as a tab's page, or every launch reopens sign-in. */
     fun isHandedOff(context: Context, url: String?): Boolean =
@@ -91,8 +94,7 @@ object GoogleSignInBridge {
 
     fun start(context: Context, url: String, webView: WebView? = null) {
         requester = webView?.let { WeakReference(it) }
-        val intent = Intent(context, GeckoSignInActivity::class.java)
-            .putExtra(GeckoSignInActivity.EXTRA_URL, url)
+        val intent = GeckoSupport.signInIntent(context, url)
         if (context !is Activity) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(intent)
     }

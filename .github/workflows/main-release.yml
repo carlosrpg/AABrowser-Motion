@@ -105,20 +105,31 @@ jobs:
         run: chmod +x gradlew
 
       - name: Run unit tests
-        run: ./gradlew app:testDebugUnitTest --stacktrace
+        run: ./gradlew app:testStandardDebugUnitTest --stacktrace
 
-      - name: Build signed release APK
-        run: ./gradlew app:assembleRelease --stacktrace
+      # standard: one APK with every ABI. automotive: one APK per ABI GeckoView ships (each carries ~65 MB of Gecko).
+      - name: Build signed release APKs
+        run: |
+          mkdir -p release-apks
+          ./gradlew app:assembleStandardRelease --stacktrace
+          cp app/build/renamedApks/standardRelease/*.apk release-apks/
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            ./gradlew app:assembleAutomotiveRelease -PabiFilters="$abi" --stacktrace
+            cp app/build/renamedApks/automotiveRelease/*.apk release-apks/
+          done
+          ls -l release-apks
 
       - name: Verify APK signature
         run: |
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose app/build/renamedApks/release/*.apk
+          for apk in release-apks/*.apk; do
+            "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$apk"
+          done
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: Motion-${{ env.APP_VERSION }}
-          path: app/build/renamedApks/release/*.apk
+          path: release-apks/*.apk
           if-no-files-found: error
 
       - name: Create GitHub release
@@ -128,7 +139,7 @@ jobs:
           RELEASE_TAG: v${{ env.APP_VERSION }}
         run: >-
           gh release create "$RELEASE_TAG"
-          app/build/renamedApks/release/*.apk
+          release-apks/*.apk
           --target "$GITHUB_SHA"
           --title "Motion $RELEASE_TAG"
           --generate-notes
