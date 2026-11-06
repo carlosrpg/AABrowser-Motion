@@ -287,6 +287,9 @@ internal object BrowserMediaSessionRegistry {
     }
 
     @Synchronized
+    fun isActive(controller: BrowserWebMediaController): Boolean = activeController === controller
+
+    @Synchronized
     fun currentState(): BrowserMediaState = currentState
 
     @Synchronized

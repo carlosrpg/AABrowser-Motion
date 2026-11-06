@@ -70,10 +70,14 @@ internal class BrowserWebMediaController(
     private var youtubeNextUrl: String? = null
     private var youtubePreviousUrl: String? = null
     private var lastMetadataKey: String? = null
+    private var lastCompleteState: BrowserMediaState? = null
+    private var missedPolls = 0
+    private var incompletePolls = 0
     private var artworkUrl: String? = null
     private var artworkBitmap: Bitmap? = null
     private var artworkRequestId = 0L
-    private var startupYouTubePlaybackChecked = false
+    private var artworkAttemptUrl: String? = null
+    private var artworkAttempts = 0
     private var youtubeSearchRequestId = 0L
     private var pendingYoutubeSearchRequestId: Long? = null
     private var pendingYoutubeSearchTerms: String? = null
@@ -503,26 +507,28 @@ internal class BrowserWebMediaController(
             Log.w(TAG, "Could not parse media monitor result", error)
             return
         }
-        unmuteMutedYouTubeOnStartup(webView, data)
+        unmuteMutedMedia(webView, data)
         updateState(data)
         if (data.optBoolean("isYouTube")) onYouTubePagePolled()
     }
 
-    private fun unmuteMutedYouTubeOnStartup(webView: WebView, data: JSONObject) {
-        if (startupYouTubePlaybackChecked ||
-            !data.optBoolean("isYouTube") ||
-            !data.optBoolean("found") ||
-            !data.optBoolean("playing")
-        ) {
-            return
-        }
-
-        startupYouTubePlaybackChecked = true
-        webView.evaluateJavascript(UNMUTE_YOUTUBE_SCRIPT, null)
+    // Players can start muted at any point (startup, autoplay, a skip, a restored session), so check every poll.
+    // MONITOR_SCRIPT only reports "muted" for a main player that started muted, never for a mute the user chose.
+    private fun unmuteMutedMedia(webView: WebView, data: JSONObject) {
+        if (!data.optBoolean("playing") || !data.optBoolean("muted")) return
+        Log.i(TAG, "media ${data.optString("mediaId")} is playing muted, unmuting")
+        webView.evaluateJavascript(UNMUTE_SCRIPT, null)
     }
 
     private fun updateState(data: JSONObject?) {
         if (data == null || !data.optBoolean("found")) {
+            // YouTube swapping videos or ads, or a page mid-navigation, can miss a poll. Tearing the session down for
+            // that blanks the car's media controls and drops the playback notification, so wait for a few in a row.
+            if (mediaState.isAvailable && ++missedPolls < MAX_MISSED_POLLS) {
+                Log.i(TAG, "media poll found nothing ($missedPolls/$MAX_MISSED_POLLS), keeping ${mediaState.mediaId}")
+                return
+            }
+            missedPolls = 0
             isYouTubePlaylist = false
             youtubeNextUrl = null
             youtubePreviousUrl = null
@@ -530,29 +536,41 @@ internal class BrowserWebMediaController(
             artworkUrl = null
             artworkBitmap = null
             lastMetadataKey = null
+            lastCompleteState = null
+            artworkAttemptUrl = null
             publishState(BrowserMediaState.None)
             publishSessionState(BrowserMediaState.None, updateMetadata = true)
             return
         }
+        missedPolls = 0
 
         isYouTubePlaylist = data.optBoolean("isPlaylist")
         youtubeNextUrl = validatedYouTubePlaylistUrl(data.optString("nextUrl"))
         youtubePreviousUrl = validatedYouTubePlaylistUrl(data.optString("previousUrl"))
         val pageUrl = getWebView()?.url ?: getPageUrl()
         val fallbackTitle = getPageTitle().ifBlank { pageUrl }
+        val mediaId = data.optString("mediaId").ifBlank { pageUrl }
+        val complete = data.optBoolean("metadataComplete")
+        incompletePolls = if (complete) 0 else incompletePolls + 1
+        // YouTube's player data and page title lag the URL while it swaps videos or plays an ad. Keep the last complete
+        // title/artist/thumbnail instead of publishing the previous page title and host name: always for the same video,
+        // and for a few polls after a switch so the car shows the old track briefly rather than a mix of both.
+        val known = lastCompleteState?.takeIf {
+            !complete && (it.mediaId == mediaId || incompletePolls < MAX_MISSED_POLLS)
+        }
         val newState = BrowserMediaState(
             isAvailable = true,
             isPlaying = data.optBoolean("playing"),
             canSkipPrevious = data.optBoolean("hasPrevious"),
             canSkipNext = data.optBoolean("hasNext"),
             hasFullscreenButton = data.optBoolean("hasFullscreenButton"),
-            title = data.optString("title").ifBlank { fallbackTitle },
-            artist = data.optString("artist")
+            title = known?.title ?: data.optString("title").ifBlank { fallbackTitle },
+            artist = known?.artist ?: data.optString("artist")
                 .ifBlank { Uri.parse(pageUrl).host.orEmpty().ifBlank { applicationContext.packageName } },
-            album = data.optString("album").ifBlank { Uri.parse(pageUrl).host.orEmpty() },
-            mediaId = data.optString("mediaId").ifBlank { pageUrl },
+            album = known?.album ?: data.optString("album").ifBlank { Uri.parse(pageUrl).host.orEmpty() },
+            mediaId = mediaId,
             mediaUri = data.optString("mediaUri").ifBlank { pageUrl },
-            artworkUrl = data.optString("artwork").takeIf(::isSupportedArtworkUrl),
+            artworkUrl = known?.artworkUrl ?: data.optString("artwork").takeIf(::isSupportedArtworkUrl),
             positionMs = (data.optDouble("position", 0.0) * 1_000.0).toLong().coerceAtLeast(0L),
             durationMs = (data.optDouble("duration", 0.0) * 1_000.0).toLong().coerceAtLeast(0L),
             canSeek = data.optBoolean("canSeek")
@@ -596,12 +614,23 @@ internal class BrowserWebMediaController(
             newState.artworkUrl.orEmpty(),
             newState.durationMs
         ).joinToString("\u0000")
-        val updateMetadata = metadataKey != lastMetadataKey
-        if (updateMetadata) {
-            lastMetadataKey = metadataKey
-            updateArtwork(newState.artworkUrl)
-        }
+        if (complete) lastCompleteState = newState
+        // Every poll: also re-send when the system session no longer shows this media (another shell, the
+        // resumable placeholder or a restarted service replaced it), so the car never keeps a stale title or thumbnail.
+        val drifted = metadataKey == lastMetadataKey &&
+            BrowserMediaSessionRegistry.isActive(this) && !sessionShows(newState)
+        if (drifted) Log.i(TAG, "media session showed stale metadata, re-publishing ${newState.mediaId}")
+        val updateMetadata = metadataKey != lastMetadataKey || drifted
+        lastMetadataKey = metadataKey
+        updateArtwork(newState.artworkUrl)
         publishSessionState(newState, updateMetadata)
+    }
+
+    private fun sessionShows(state: BrowserMediaState): Boolean {
+        val shown = mediaSession.controller.metadata ?: return false
+        return shown.getString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID) == state.mediaId &&
+            shown.getString(MediaMetadataCompat.METADATA_KEY_TITLE) == state.title &&
+            shown.getBitmap(MediaMetadataCompat.METADATA_KEY_ART) != null
     }
 
     private fun publishState(state: BrowserMediaState) {
@@ -762,11 +791,23 @@ internal class BrowserWebMediaController(
         artworkBitmap = null
         val requestId = ++artworkRequestId
         if (url.isNullOrBlank()) return
+        if (url != artworkAttemptUrl) {
+            artworkAttemptUrl = url
+            artworkAttempts = 0
+        }
+        artworkAttempts++
 
         artworkExecutor.execute {
             val bitmap = downloadArtwork(url)
             handler.post {
                 if (isDestroyed || requestId != artworkRequestId || url != artworkUrl) return@post
+                if (bitmap == null && artworkAttempts < MAX_ARTWORK_ATTEMPTS) {
+                    // A dropped request on the car's connection would leave the app icon for the whole video:
+                    // forget the URL so the next poll downloads it again.
+                    Log.w(TAG, "artwork download failed (attempt $artworkAttempts), retrying on next poll")
+                    artworkUrl = null
+                    return@post
+                }
                 artworkBitmap = bitmap ?: appIcon
                 publishSessionState(mediaState, updateMetadata = true)
             }
@@ -896,6 +937,8 @@ internal class BrowserWebMediaController(
 
     private companion object {
         const val MONITOR_INTERVAL_MS = 3_000L
+        const val MAX_MISSED_POLLS = 3
+        const val MAX_ARTWORK_ATTEMPTS = 3
         const val RESTART_INSTEAD_OF_PREVIOUS_SECONDS = 10.0
         const val LONG_PRESS_MS = 500L
         const val HELD_KEY_SEEK_INTERVAL_MS = 500L
@@ -1245,6 +1288,19 @@ internal class BrowserWebMediaController(
               );
               const isEnabled = button =>
                 !!button && !button.disabled && button.getAttribute("aria-disabled") !== "true";
+              // Only media that *started* muted gets its sound back; a mute the user chose is left alone.
+              // YouTube marks a muted start with its "Tap to unmute" prompt (.ytp-unmute); its player mute shows none.
+              // Elsewhere: the playing main player, muted since it started (never heard with sound), skipping the
+              // decorative loops and short clips sites autoplay muted on purpose.
+              const unmutePrompt = document.querySelector(".ytp-unmute");
+              const mediaMuted = !!mediaPlayer && (mediaPlayer.muted || mediaPlayer.volume === 0);
+              const mediaKey = mediaPlayer ? (mediaPlayer.currentSrc || mediaPlayer.src) : "";
+              if (active && !mediaMuted && active === mediaPlayer) bridge.heard = mediaKey;
+              const muted = isYouTube
+                ? !!pageVideoId && !!unmutePrompt && unmutePrompt.getBoundingClientRect().width > 0
+                : !!active && active === mediaPlayer && mediaMuted && bridge.heard !== mediaKey &&
+                  !mediaPlayer.loop && !(mediaPlayer.duration > 0 && mediaPlayer.duration < 30);
+              bridge.mutedMedia = muted ? mediaPlayer : null;
               return JSON.stringify({
                 found: players.length > 0 || !!youtubeVideoId || !!fullscreenButton,
                 isYouTube: isYouTube,
@@ -1252,6 +1308,10 @@ internal class BrowserWebMediaController(
                 title: title,
                 artist: artist,
                 album: album,
+                muted: muted,
+                metadataComplete: youtubePlayer
+                  ? !!(youtubeTitle && youtubeVideoData.author)
+                  : !!(metadata && metadata.title),
                 mediaId: youtubeVideoId ||
                   (mediaPlayer && (mediaPlayer.currentSrc || mediaPlayer.src)) || location.href,
                 mediaUri: location.href,
@@ -1290,7 +1350,8 @@ internal class BrowserWebMediaController(
             })();
         """.trimIndent()
 
-        val UNMUTE_YOUTUBE_SCRIPT = """
+        // Acts on what MONITOR_SCRIPT judged muted: YouTube through its player API, other sites on the flagged element.
+        val UNMUTE_SCRIPT = """
             (function() {
               const player = document.getElementById("movie_player") ||
                 document.querySelector(".html5-video-player");
@@ -1301,9 +1362,9 @@ internal class BrowserWebMediaController(
                     player.getVolume() === 0) {
                   player.setVolume(100);
                 }
-                return;
               }
-              const media = document.querySelector("video");
+              const bridge = window.__aaBrowserMotionMedia;
+              const media = bridge && bridge.mutedMedia;
               if (media) {
                 media.muted = false;
                 if (media.volume === 0) media.volume = 1;
