@@ -203,10 +203,10 @@
     <string name="open_source_licenses_title">Licenças de código aberto</string>
 
     <string name="developer_name">carlosrpg (mantenedor do fork)</string>
-    <string name="menu_start_page">Página de início</string>
+    <string name="menu_start_page">Início</string>
     <string name="menu_start_page_add_current">Adicionar página atual à página de início</string>
     <string name="menu_home_page_set_current">Definir página atual como página inicial</string>
-    <string name="start_page_title">Página de início</string>
+    <string name="start_page_title">Início</string>
     <string name="start_page_headline">Motion</string>
     <string name="start_page_subtitle">Acesso rápido aos sites que você mais usa.</string>
     <string name="start_page_card_title">Atalhos</string>
@@ -226,14 +226,14 @@
     <string name="start_page_add_current_unavailable">Abra um site primeiro.</string>
     <string name="start_page_disabled_by_home_page">A página inicial está ativada. Limpe-a nas Configurações para usar a página de início.</string>
     <string name="start_page_add_disabled_by_home_page">A edição da página de início fica desativada enquanto houver uma página inicial definida.</string>
-    <string name="bookmark_start_page_badge">Página de início - %1$s</string>
-    <string name="bookmark_home_page_badge">Página inicial</string>
+    <string name="bookmark_start_page_badge">Início - %1$s</string>
+    <string name="bookmark_home_page_badge">Início</string>
     <string name="tab_manager_title">Abas</string>
     <string name="tab_manager_subtitle">Alterne entre abas abertas, abra uma nova ou feche páginas que não precisa mais.</string>
     <string name="tab_manager_back">Voltar</string>
     <string name="tab_manager_add">Nova aba</string>
     <string name="tab_manager_active_badge">Aba atual</string>
-    <string name="tab_manager_blank_title">Página de início</string>
+    <string name="tab_manager_blank_title">Início</string>
     <string name="tab_manager_blank_subtitle">Uma nova aba está pronta.</string>
     <string name="tab_manager_close">Fechar aba</string>
     <string name="tab_manager_max_tabs">Você pode manter até %1$d abas abertas.</string>
