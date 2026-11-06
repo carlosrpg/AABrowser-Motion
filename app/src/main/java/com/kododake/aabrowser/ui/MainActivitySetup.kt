@@ -85,13 +85,21 @@ class MainActivitySetup(
         val onAddressInputFocusChanged: (Boolean) -> Unit = {},
         val onMediaKey: (KeyEvent) -> Unit = {},
         val onMediaPlayPause: () -> Unit = {},
-        val onMediaFullscreen: () -> Unit = {}
+        val onMediaFullscreen: () -> Unit = {},
+        val onClusterModeChanged: (Boolean) -> Unit = {}
     )
 
     fun initializeUi(
         intentUrl: String?,
         shouldForceSessionRestore: Boolean
     ) {
+        // The root CoordinatorLayout's own fitsSystemWindows handling sets SYSTEM_UI_FLAG_LAYOUT_STABLE, so it kept the
+        // system bars' space after "Request full screen" hid them (top/bottom bands). Pad only for the bars shown now.
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { root, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            root.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            WindowInsetsCompat.CONSUMED
+        }
         ViewCompat.setOnApplyWindowInsetsListener(binding.webViewContainer) { _, _ ->
             WindowInsetsCompat.CONSUMED
         }
@@ -139,6 +147,7 @@ class MainActivitySetup(
                 managers.uiManager.setImmersiveMode(isChecked)
                 managers.uiManager.menuHelper.stateHolder.isFullscreenMode = isChecked
             },
+            onClusterToggle = actions.onClusterModeChanged,
             onNewTab = {
                 managers.tabManager.createNewTab(true)
                 managers.uiManager.hideMenuOverlay()

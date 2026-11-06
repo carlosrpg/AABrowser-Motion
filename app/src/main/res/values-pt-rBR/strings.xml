@@ -30,6 +30,7 @@
 
     <string name="menu_desktop_mode">Versão para computador</string>
     <string name="menu_fullscreen_mode">Tela cheia</string>
+    <string name="menu_cluster_mode">Vídeo no painel de instrumentos</string>
     <string name="menu_back">Voltar</string>
     <string name="menu_forward">Avançar</string>
     <string name="menu_reload">Recarregar</string>
@@ -299,4 +300,12 @@
     <string name="keyboard_go">Ir</string>
     <string name="sponsor_bmc_qr_accessibility">QR Code do Buy Me a Coffee</string>
     <string name="sponsor_github_qr_accessibility">QR Code do GitHub Sponsors</string>
+
+    <!-- Login do Google via GeckoView -->
+    <string name="gecko_sign_in_title">Login do Google</string>
+    <string name="gecko_sign_in_finishing">Concluindo o login…</string>
+    <string name="gecko_sign_in_done">Login no Google concluído</string>
+    <string name="gecko_sign_in_failed">Não foi possível concluir o login do Google. Tente novamente.</string>
+    <string name="settings_google_sign_in">Fazer login no Google</string>
+    <string name="settings_google_sign_in_description">Abre o login do Google no motor integrado, porque o WebView do sistema do carro é antigo demais para o Google aceitar. A sessão passa a ser usada pelo navegador.</string>
 </resources>

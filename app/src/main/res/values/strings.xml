@@ -29,6 +29,7 @@
     
     <string name="menu_desktop_mode">Request desktop site</string>
     <string name="menu_fullscreen_mode">Request full screen</string>
+    <string name="menu_cluster_mode">Show video on cluster</string>
     <string name="menu_back">Back</string>
     <string name="menu_forward">Forward</string>
     <string name="menu_reload">Reload</string>
@@ -300,4 +301,12 @@
     <string name="keyboard_go">Go</string>
     <string name="sponsor_bmc_qr_accessibility">Buy Me a Coffee QR Code</string>
     <string name="sponsor_github_qr_accessibility">GitHub Sponsors QR Code</string>
+
+    <!-- Google sign-in via GeckoView -->
+    <string name="gecko_sign_in_title">Google sign-in</string>
+    <string name="gecko_sign_in_finishing">Finishing sign-in…</string>
+    <string name="gecko_sign_in_done">Signed in to Google</string>
+    <string name="gecko_sign_in_failed">Could not finish Google sign-in. Try again.</string>
+    <string name="settings_google_sign_in">Sign in to Google</string>
+    <string name="settings_google_sign_in_description">Opens Google sign-in on the built-in engine, because the car\'s system WebView is too old for Google to accept. The session is then used by the browser.</string>
 </resources>

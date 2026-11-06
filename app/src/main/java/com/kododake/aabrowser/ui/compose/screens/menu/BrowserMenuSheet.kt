@@ -25,10 +25,13 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.kododake.aabrowser.R
 import com.kododake.aabrowser.ui.compose.components.ExpressiveBottomSheetContainer
@@ -121,6 +124,18 @@ fun BrowserMenuSheet(
                     dismissKeyboardBefore { actions.onFullscreenToggle(checked) }
                 }
             )
+
+            if (stateHolder.isClusterAvailable) {
+                Spacer(Modifier.height(8.dp))
+                MenuSwitchCard(
+                    title = stringResource(R.string.menu_cluster_mode),
+                    icon = Icons.Rounded.Speed,
+                    isChecked = stateHolder.isClusterMode,
+                    onCheckedChange = { checked ->
+                        dismissKeyboardBefore { actions.onClusterToggle(checked) }
+                    }
+                )
+            }
 
             Spacer(Modifier.height(4.dp))
 

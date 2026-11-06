@@ -33,6 +33,7 @@ import android.webkit.WebViewClient
 import androidx.webkit.WebViewFeature
 import com.kododake.aabrowser.R
 import com.kododake.aabrowser.data.BrowserPreferences
+import com.kododake.aabrowser.gecko.GoogleSignInBridge
 
 class BrowserWebViewClient(
     private val callbacks: BrowserCallbacks
@@ -41,6 +42,10 @@ class BrowserWebViewClient(
     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
         val uri = request.url
         if (CleartextNavigationHandler.handleCleartextIfNeeded(view, uri, callbacks, onPageStart = false)) {
+            return true
+        }
+        // Google blocks sign-in on the head unit's outdated WebView; sign in on GeckoView and copy the session back.
+        if (request.isForMainFrame && GoogleSignInBridge.interceptIfNeeded(view, uri)) {
             return true
         }
         return handleUri(uri)
@@ -60,6 +65,13 @@ class BrowserWebViewClient(
         val stringUrl = url ?: return
         val uri = Uri.parse(stringUrl)
         val scheme = uri.scheme?.lowercase()
+
+        // loadUrl() (typed URL, bookmark, restored tab) skips shouldOverrideUrlLoading.
+        if (GoogleSignInBridge.interceptIfNeeded(view, uri)) {
+            view.stopLoading()
+            if (view.canGoBack()) view.goBack()
+            return
+        }
 
         if (scheme == "http") {
             val allowedOnce = view.getTag(R.id.webview_allow_once_uri_tag) as? String

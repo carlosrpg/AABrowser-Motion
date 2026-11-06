@@ -1,6 +1,13 @@
 # Changelog
 
 ## Unreleased
+- Android Automotive: sign in to Google through a bundled GeckoView engine (head units ship a WebView too old for Google to accept); the session is then copied into the browser. Phones and Android Auto keep signing in in the WebView.
+- Android Automotive: new "Show video on cluster" menu switch shows the playing video full screen on the instrument cluster; media buttons keep working, and the next video in a mix goes there too.
+- "Request full screen" now really uses the whole screen on Android Automotive (no empty bands where the system bars were).
+- Car media controls keep showing the playing video: a brief gap while YouTube changes video no longer clears them, title and thumbnail stay consistent during track changes, and failed thumbnails are retried.
+- Media that starts muted (YouTube's "Tap to unmute", or another site's main player) is unmuted automatically; a mute you chose is kept.
+- Maximizing a YouTube video (Mixes, maximized restore, the fullscreen control) now works on older WebViews such as 95, which ignored the scripted fullscreen request.
+- After a Google sign-in, a restart reopens the previous page instead of the sign-in screen.
 - New optional "Block YouTube ads" setting (off by default) removes YouTube ads while keeping YouTube's own player.
 - Default bookmarks are now the start page quick links; untouched old default bookmarks are replaced, customized ones are kept.
 - The floating mic (voice search) button shows only on YouTube pages.

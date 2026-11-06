@@ -36,12 +36,13 @@ class MenuFabController(
     private val binding: ActivityMainBinding,
     private val menuHelper: MenuSetupHelper,
     private val isShowingStartPage: () -> Boolean,
-    private val isInFullscreen: () -> Boolean
+    private val isInFullscreen: () -> Boolean,
+    private val keepVisible: () -> Boolean = { false }
 ) {
     private val handler: Handler = Handler(Looper.getMainLooper())
 
     private val autoHideMenuFab = Runnable {
-        if (!isShowingStartPage() && !BrowserPreferences.isQuickActionButtonAlwaysVisible(context)) {
+        if (!isShowingStartPage() && !keepVisible() && !BrowserPreferences.isQuickActionButtonAlwaysVisible(context)) {
             menuHelper.hideFab()
         }
     }

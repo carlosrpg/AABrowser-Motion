@@ -12,7 +12,12 @@ plugins {
 
 android {
     namespace = "com.kododake.aabrowser"
-    compileSdk = 37
+    // 37.2: GeckoView 159's AAR metadata requires compiling against API 37 minor 2.
+    compileSdk {
+        version = release(37) {
+            minorApiLevel = 2
+        }
+    }
 
     defaultConfig {
         applicationId = "com.carlosrpg.aabrowser"
@@ -39,6 +44,12 @@ android {
         versionName = appVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Optional: -PabiFilters=arm64-v8a. GeckoView ships ~70 MB of native code per ABI.
+        (findProperty("abiFilters") as String?)
+            ?.split(',')?.map(String::trim)?.filter(String::isNotEmpty)
+            ?.takeIf { it.isNotEmpty() }
+            ?.let { abis -> ndk { abiFilters += abis } }
     }
 
     useLibrary("android.car")
@@ -65,6 +76,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            // GeckoView bundles its engine per ABI; four ABIs make a ~600 MB debug APK. Head units are arm64.
+            ndk { abiFilters += "arm64-v8a" }
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
@@ -133,6 +148,7 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.constraintlayout)
     implementation(libs.androidx.webkit)
+    implementation(libs.geckoview)
     implementation(libs.androidx.media)
     implementation(libs.google.material)
     implementation(libs.androidx.car.app)
