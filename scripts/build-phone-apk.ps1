@@ -9,9 +9,9 @@ $ErrorActionPreference = 'Stop'
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = (Resolve-Path (Join-Path $scriptDir '..')).Path
 $gradleWrapper = Join-Path $repoRoot 'gradlew.bat'
-$variant = 'release'
 $assembleTask = 'app:assembleRelease'
-$apkDirectory = Join-Path $repoRoot "app\build\renamedApks\$variant"
+# standard: phones, Android Auto and AAOS (WebView only). automotive: AAOS arm64 only, with GeckoView sign-in.
+$variants = @('standardRelease', 'automotiveRelease')
 $distDirectory = Join-Path $repoRoot 'dist'
 
 function Resolve-Java21Home {
@@ -136,79 +136,85 @@ try {
 
     if ($RunTests) {
         Write-Host 'Running debug unit tests...'
-        Invoke-Gradle -Tasks @('app:testDebugUnitTest')
+        Invoke-Gradle -Tasks @('app:testStandardDebugUnitTest')
     }
 
     if (-not (Test-Path (Join-Path $repoRoot 'release.keystore')) -or -not (Test-Path (Join-Path $repoRoot 'local.properties'))) {
         throw 'Release signing is not configured. Run .\scripts\setup-release-signing.ps1 first.'
     }
 
-    Write-Host "Building installable $variant APK..."
+    Write-Host "Building installable release APKs..."
     Invoke-Gradle -Tasks @($assembleTask)
 
-    $apk = Get-ChildItem -Path $apkDirectory -Filter '*.apk' -File |
-        Sort-Object LastWriteTime -Descending |
-        Select-Object -First 1
-
-    if (-not $apk) {
-        throw "Build completed, but no APK was found in $apkDirectory."
-    }
-
-    & $apkSigner verify --verbose $apk.FullName
-    if ($LASTEXITCODE -ne 0) {
-        throw "APK signature verification failed for $($apk.FullName)."
-    }
-
-    $manifestDump = (& $aapt dump xmltree $apk.FullName AndroidManifest.xml 2>&1) -join "`n"
-    $requiredManifestEntries = @(
-        'com.google.android.gms.car.application',
-        'androidx.car.app.minCarApiLevel',
-        'androidx.car.app.ACCESS_SURFACE',
-        'com.kododake.aabrowser.car.SplitScreenProjectionService',
-        'com.google.android.gms.car.category.CATEGORY_PROJECTION',
-        'com.google.android.gms.car.category.CATEGORY_PROJECTION_OEM',
-        'com.kododake.aabrowser.car.FullscreenCarService',
-        'androidx.car.app.CarAppService',
-        'androidx.car.app.category.NAVIGATION',
-        'androidx.car.app.NAVIGATION_TEMPLATES',
-        'com.kododake.aabrowser.MainActivity',
-        'android.intent.category.LAUNCHER'
-    )
-    foreach ($entry in $requiredManifestEntries) {
-        if ($manifestDump -notmatch [regex]::Escape($entry)) {
-            throw "Packaged manifest is missing required entry: $entry"
-        }
-    }
-
-    $automotiveDescriptorPath = (
-        & $apkAnalyzer resources value --config default --type xml `
-            --name automotive_app_desc $apk.FullName 2>&1
-    ) -join ''
-    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($automotiveDescriptorPath)) {
-        throw 'Packaged automotive_app_desc.xml could not be resolved.'
-    }
-    $automotiveDescriptorDump = (
-        & $apkAnalyzer resources xml --file $automotiveDescriptorPath.Trim() $apk.FullName 2>&1
-    ) -join "`n"
-    foreach ($capability in @('service', 'projection', 'template')) {
-        if ($automotiveDescriptorDump -notmatch $capability) {
-            throw "Packaged automotive_app_desc.xml does not declare the $capability capability."
-        }
-    }
-
     New-Item -ItemType Directory -Force $distDirectory | Out-Null
-    $distApk = Join-Path $distDirectory $apk.Name
-    Copy-Item $apk.FullName $distApk -Force
+    $distApks = @()
+    foreach ($variant in $variants) {
+        $apkDirectory = Join-Path $repoRoot "app\build\renamedApks\$variant"
+        $apk = Get-ChildItem -Path $apkDirectory -Filter '*.apk' -File |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+
+        if (-not $apk) {
+            throw "Build completed, but no APK was found in $apkDirectory."
+        }
+
+        & $apkSigner verify --verbose $apk.FullName
+        if ($LASTEXITCODE -ne 0) {
+            throw "APK signature verification failed for $($apk.FullName)."
+        }
+
+        $manifestDump = (& $aapt dump xmltree $apk.FullName AndroidManifest.xml 2>&1) -join "`n"
+        $requiredManifestEntries = @(
+            'com.google.android.gms.car.application',
+            'androidx.car.app.minCarApiLevel',
+            'androidx.car.app.ACCESS_SURFACE',
+            'com.kododake.aabrowser.car.SplitScreenProjectionService',
+            'com.google.android.gms.car.category.CATEGORY_PROJECTION',
+            'com.google.android.gms.car.category.CATEGORY_PROJECTION_OEM',
+            'com.kododake.aabrowser.car.FullscreenCarService',
+            'androidx.car.app.CarAppService',
+            'androidx.car.app.category.NAVIGATION',
+            'androidx.car.app.NAVIGATION_TEMPLATES',
+            'com.kododake.aabrowser.MainActivity',
+            'android.intent.category.LAUNCHER'
+        )
+        foreach ($entry in $requiredManifestEntries) {
+            if ($manifestDump -notmatch [regex]::Escape($entry)) {
+                throw "Packaged manifest is missing required entry: $entry"
+            }
+        }
+
+        $automotiveDescriptorPath = (
+            & $apkAnalyzer resources value --config default --type xml `
+                --name automotive_app_desc $apk.FullName 2>&1
+        ) -join ''
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($automotiveDescriptorPath)) {
+            throw 'Packaged automotive_app_desc.xml could not be resolved.'
+        }
+        $automotiveDescriptorDump = (
+            & $apkAnalyzer resources xml --file $automotiveDescriptorPath.Trim() $apk.FullName 2>&1
+        ) -join "`n"
+        foreach ($capability in @('service', 'projection', 'template')) {
+            if ($automotiveDescriptorDump -notmatch $capability) {
+                throw "Packaged automotive_app_desc.xml does not declare the $capability capability."
+            }
+        }
+
+        $distApk = Join-Path $distDirectory $apk.Name
+        Copy-Item $apk.FullName $distApk -Force
+        $distApks += $distApk
+    }
 
     Write-Host ''
-    Write-Host "Signed $variant APK ready for Android 11/API 30 or newer (phone and Android Automotive):" -ForegroundColor Green
-    Write-Host $distApk -ForegroundColor Cyan
+    Write-Host 'Signed release APKs ready for Android 11/API 30 or newer:' -ForegroundColor Green
+    Write-Host "Phones, Android Auto and Android Automotive: $($distApks[0])" -ForegroundColor Cyan
+    Write-Host "Android Automotive arm64 with GeckoView Google sign-in: $($distApks[1])" -ForegroundColor Cyan
     Write-Host ''
-    Write-Host "Install with: adb install -r `"$distApk`""
+    Write-Host "Install with: adb install -r `"<apk>`""
     Write-Host ''
     Write-Host 'If a differently signed build is currently installed, uninstall it once before installing this release:' -ForegroundColor Yellow
     Write-Host 'adb uninstall com.carlosrpg.aabrowser'
-    Write-Host "adb install `"$distApk`""
+    Write-Host "adb install `"<apk>`""
 }
 finally {
     Pop-Location

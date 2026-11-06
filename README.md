@@ -28,7 +28,12 @@ Phone voice search is declared as the `actions.intent.PLAY_MEDIA` App Action in 
 
 ### Android Automotive
 
-The same APK runs on Android Automotive OS 11+ head units. Production car builds only let an app run while driving if it was installed from a store the car allows, so a sideloaded APK shows "can't be used while driving" unless the installer is recorded as one, usually the Play Store:
+Each release ships these APKs, all with the same package name:
+
+- `Motion-<version>.apk`: phones, Android Auto and Android Automotive head units, all ABIs. Google sign-in runs in the system WebView.
+- `Motion-<version>-automotive-<arch>.apk` (`arm64`, `armv7`, `x86_64`): Android Automotive head units only, one APK per CPU architecture; pick the one matching the head unit (most are `arm64`, the emulator is `x86_64`). It also bundles GeckoView (a much larger APK) and uses it for Google sign-in, because head units ship a WebView too old for Google to accept.
+
+Either one runs on Android Automotive OS 11+ head units. Production car builds only let an app run while driving if it was installed from a store the car allows, so a sideloaded APK shows "can't be used while driving" unless the installer is recorded as one, usually the Play Store:
 
 ```bash
 adb install -r -i com.android.vending Motion-<version>.apk
@@ -42,13 +47,15 @@ Configure the Android SDK through `ANDROID_HOME` or an untracked `local.properti
 sdk.dir=C:\\Users\\<user>\\AppData\\Local\\Android\\Sdk
 ```
 
-Build the signed release APK on Windows:
+Build the signed release APKs on Windows:
 
 ```powershell
 .\scripts\build-phone-apk.ps1
 ```
 
-The script locates the standard Android SDK, builds the locally signed release APK, verifies its signature and Android Auto metadata, and copies it to `dist/`.
+The script locates the standard Android SDK, builds both locally signed release APKs (the `standard` and `automotive` product flavors), verifies their signatures and Android Auto metadata, and copies them to `dist/`.
+
+Locally the automotive APK targets arm64 head units. For another architecture, such as the x86_64 Android Automotive emulator, build it with `.\gradlew.bat app:assembleAutomotiveRelease -PabiFilters=x86_64`.
 
 Optional flags:
 
@@ -62,7 +69,7 @@ Build the signed Android App Bundle for Google Play with:
 .\gradlew.bat app:bundleRelease
 ```
 
-The bundle is written to `app\build\outputs\bundle\release\app-release.aab` and uses the same stable release signing configuration. Google Play App Signing should be enabled when creating the Play listing; retain the upload key and its credentials for future updates.
+The bundles are written to `app\build\outputs\bundle\standardRelease\` and `app\build\outputs\bundle\automotiveRelease\` and use the same stable release signing configuration. Google Play App Signing should be enabled when creating the Play listing; retain the upload key and its credentials for future updates.
 
 Generate the ignored release key once before the first build:
 
@@ -84,7 +91,7 @@ Run local tests and Android Lint:
 
 ## Continuous delivery
 
-Every push to `main` runs the GitHub Actions workflow in `.github/workflows/main-release.yml`. It runs unit tests, builds and verifies a signed release APK, uploads it as a workflow artifact, and creates a prerelease tagged `main-<run number>` with the APK attached.
+Every push to `main` runs the GitHub Actions workflow in `.github/workflows/main-release.yml`. It runs unit tests, builds and verifies the signed release APKs (standard plus one automotive APK per architecture), uploads them as a workflow artifact, and creates a prerelease tagged `main-<run number>` with the APKs attached.
 
 Configure these GitHub Actions repository secrets before enabling releases:
 

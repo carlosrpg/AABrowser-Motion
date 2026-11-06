@@ -10,29 +10,29 @@ The current implementation targets standard Android first. The planned platform 
 # Windows
 .\scripts\build-phone-apk.ps1
 .\gradlew.bat app:assembleDebug
-.\gradlew.bat app:testDebugUnitTest
-.\gradlew.bat app:lintDebug
+.\gradlew.bat app:testStandardDebugUnitTest
+.\gradlew.bat app:lintStandardDebug
 ```
 
 ```bash
 # macOS/Linux equivalents
 ./gradlew app:assembleDebug
-./gradlew app:testDebugUnitTest
-./gradlew app:lintDebug
+./gradlew app:testStandardDebugUnitTest
+./gradlew app:lintStandardDebug
 ```
 
 - Run one local JUnit test with:
-  `.\gradlew.bat app:testDebugUnitTest --tests "com.kododake.aabrowser.ExampleUnitTest.addition_isCorrect"`
+  `.\gradlew.bat app:testStandardDebugUnitTest --tests "com.kododake.aabrowser.ExampleUnitTest.addition_isCorrect"`
 - `.\scripts\build-phone-apk.ps1` is the preferred Windows command and produces only the signed release APK. Use `-Clean` for a clean build and `-RunTests` to run unit tests first.
 - Run `.\scripts\setup-release-signing.ps1` once before the first scripted build. The ignored `release.keystore` and `local.properties` must be backed up and reused for upgrades.
 - Run all instrumentation tests on a connected API 30+ device/emulator with:
-  `.\gradlew.bat app:connectedDebugAndroidTest`
+  `.\gradlew.bat app:connectedStandardDebugAndroidTest`
 - Run one instrumentation test with:
-  `.\gradlew.bat app:connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=com.kododake.aabrowser.ExampleInstrumentedTest#useAppContext"`
-- `app:assembleDebug` finalizes with `app:debugRenameApk`; the `Motion-<version>_debug.apk` file is written under `app/build/renamedApks/debug/`.
+  `.\gradlew.bat app:connectedStandardDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=com.kododake.aabrowser.ExampleInstrumentedTest#useAppContext"`
+- `app:assembleDebug` builds both product flavors; each finalizes with `app:<flavor>DebugRenameApk`, writing `Motion-<version>_debug.apk` (standard) and `Motion-<version>-automotive-arm64_debug.apk` under `app/build/renamedApks/<flavor>Debug/`.
 - Release builds are currently unminified and use the `release` signing configuration. Signing values are resolved from Gradle properties, `local.properties`, or environment variables named `RELEASE_STORE_FILE`, `RELEASE_STORE_PASSWORD`, `RELEASE_KEY_ALIAS`, and `RELEASE_KEY_PASSWORD`.
 - There is no separate ktlint/detekt task; Android Lint is the repository's lint surface.
-- `app:lintDebug` currently reports pre-existing Android Auto manifest and experimental WebView API errors; do not assume a lint failure was introduced by the current change without checking the text report.
+- `app:lintStandardDebug` currently reports pre-existing Android Auto manifest and experimental WebView API errors; do not assume a lint failure was introduced by the current change without checking the text report.
 
 ## Architecture
 

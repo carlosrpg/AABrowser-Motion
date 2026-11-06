@@ -10,6 +10,12 @@ plugins {
     id("com.google.android.gms.oss-licenses-plugin")
 }
 
+// Head units are arm64; -PabiFilters=x86_64 builds the automotive flavor for the x86_64 AAOS emulator.
+val automotiveAbis = (findProperty("abiFilters") as String?)
+    ?.split(',')?.map(String::trim)?.filter(String::isNotEmpty)
+    ?.takeIf { it.isNotEmpty() }
+    ?: listOf("arm64-v8a")
+
 android {
     namespace = "com.kododake.aabrowser"
     // 37.2: GeckoView 159's AAR metadata requires compiling against API 37 minor 2.
@@ -44,12 +50,20 @@ android {
         versionName = appVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
 
-        // Optional: -PabiFilters=arm64-v8a. GeckoView ships ~70 MB of native code per ABI.
-        (findProperty("abiFilters") as String?)
-            ?.split(',')?.map(String::trim)?.filter(String::isNotEmpty)
-            ?.takeIf { it.isNotEmpty() }
-            ?.let { abis -> ndk { abiFilters += abis } }
+    // standard: phones, Android Auto and AAOS, WebView only, every ABI.
+    // automotive: AAOS head units only, adds GeckoView for Google sign-in (~70 MB native code per ABI, so arm64 only).
+    flavorDimensions += "platform"
+    productFlavors {
+        create("standard") {
+            dimension = "platform"
+            isDefault = true
+        }
+        create("automotive") {
+            dimension = "platform"
+            ndk { abiFilters += automotiveAbis }
+        }
     }
 
     useLibrary("android.car")
@@ -76,10 +90,6 @@ android {
     }
 
     buildTypes {
-        debug {
-            // GeckoView bundles its engine per ABI; four ABIs make a ~600 MB debug APK. Head units are arm64.
-            ndk { abiFilters += "arm64-v8a" }
-        }
         release {
             isMinifyEnabled = false
             proguardFiles(
@@ -111,7 +121,12 @@ android {
             val vNameStr = android.defaultConfig.versionName ?: "unknown"
             val appNameStr = "Motion"
             val isDebug = variant.buildType == "debug"
-            val debugSuffixStr = if (isDebug) "_debug" else ""
+            val isAutomotive = variant.flavorName == "automotive"
+            val abiNames = mapOf("arm64-v8a" to "arm64", "armeabi-v7a" to "armv7")
+            val suffixStr = (if (isAutomotive) "-automotive-" + automotiveAbis.joinToString("-") { abiNames[it] ?: it } else "") +
+                if (isDebug) "_debug" else ""
+            // Gecko's libxul.so is ~150 MB stored; compressing it shrinks the APK at the cost of extracting it on install.
+            if (isAutomotive) variant.packaging.jniLibs.useLegacyPackaging.set(true)
 
             val renameTaskProvider = tasks.register<RenameApkTask>("${variant.name}RenameApk") {
                 inputDir.set(variant.artifacts.get(SingleArtifact.APK))
@@ -119,7 +134,7 @@ android {
 
                 appName.set(appNameStr)
                 versionNameProp.set(vNameStr)
-                debugSuffixProp.set(debugSuffixStr)
+                debugSuffixProp.set(suffixStr)
             }
 
             afterEvaluate {
@@ -148,7 +163,7 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.constraintlayout)
     implementation(libs.androidx.webkit)
-    implementation(libs.geckoview)
+    "automotiveImplementation"(libs.geckoview)
     implementation(libs.androidx.media)
     implementation(libs.google.material)
     implementation(libs.androidx.car.app)

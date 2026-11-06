@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Releases are split in two APKs. `Motion-<version>.apk` (phones, Android Auto, Android Automotive) no longer bundles GeckoView and is back to its old size. `Motion-<version>-automotive-<arch>.apk` (arm64, armv7 or x86_64) is for Android Automotive head units and keeps the GeckoView Google sign-in; its native code is now compressed (about 160 MB instead of 264 MB).
 - Android Automotive: sign in to Google through a bundled GeckoView engine (head units ship a WebView too old for Google to accept); the session is then copied into the browser. Phones and Android Auto keep signing in in the WebView.
 - Android Automotive: new "Show video on cluster" menu switch shows the playing video full screen on the instrument cluster; media buttons keep working, and the next video in a mix goes there too.
 - "Request full screen" now really uses the whole screen on Android Automotive (no empty bands where the system bars were).

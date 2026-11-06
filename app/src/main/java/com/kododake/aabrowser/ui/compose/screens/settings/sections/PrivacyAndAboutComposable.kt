@@ -315,7 +315,7 @@ fun PrivacyAndAboutComposable(
                 CookieManager.getInstance().removeAllCookies(null)
                 // The Google sign-in engine keeps its own session; clear it too or the next sign-in reuses it.
                 if (com.kododake.aabrowser.gecko.GoogleSignInBridge.isEnabled(context)) {
-                    com.kododake.aabrowser.gecko.GeckoEngine.clearAllData(context)
+                    com.kododake.aabrowser.gecko.GeckoSupport.clearAllData(context)
                 }
                 Toast.makeText(context, R.string.settings_clear_cookies_success_title, Toast.LENGTH_SHORT).show()
                 showClearCookiesDialog = false
