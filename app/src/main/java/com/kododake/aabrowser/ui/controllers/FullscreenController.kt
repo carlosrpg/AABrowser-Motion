@@ -39,9 +39,25 @@ class FullscreenController(
 ) {
     private var customView: View? = null
     private var customViewCallback: WebChromeClient.CustomViewCallback? = null
+    private var touchHost: View? = null
+    // Set while "Show video on cluster" is on: the page's fullscreen video goes to the instrument cluster instead.
+    private var clusterHost: ViewGroup? = null
     private var isImmersiveMode: Boolean = false
 
-    fun isInFullscreen(): Boolean = customView != null
+    /** Fullscreen shown on this screen (UI, back key, menu button). False while the video is on the cluster. */
+    fun isInFullscreen(): Boolean = customView != null && clusterHost == null
+
+    /** The page itself is fullscreen, wherever its video is shown. */
+    fun isPageFullscreen(): Boolean = customView != null
+
+    fun isClusterMode(): Boolean = clusterHost != null
+
+    fun setClusterHost(host: ViewGroup?) {
+        if (clusterHost === host) return
+        clusterHost = host
+        touchHost?.let(::showFullscreenView)
+        updateSystemBars()
+    }
 
     fun isImmersiveMode(): Boolean = isImmersiveMode
 
@@ -52,7 +68,7 @@ class FullscreenController(
     }
 
     fun updateSystemBars() {
-        val shouldHide = (customView != null) || isImmersiveMode
+        val shouldHide = isInFullscreen() || isImmersiveMode
         val hostWindow = window ?: return
         val controller = WindowInsetsControllerCompat(hostWindow, binding.root)
         controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -80,19 +96,26 @@ class FullscreenController(
 
         onPrepareEnter()
 
-        val touchHost = TouchAwareFullscreenContainer(context, onFullscreenInteraction).apply {
+        val host = TouchAwareFullscreenContainer(context, onFullscreenInteraction).apply {
             addView(view, FrameLayout.LayoutParams(-1, -1))
         }
-        binding.fullscreenContainer.apply {
-            visibility = View.VISIBLE
-            removeAllViews()
-            addView(touchHost, FrameLayout.LayoutParams(-1, -1))
-            bringToFront()
-        }
+        touchHost = host
+        showFullscreenView(host)
 
         window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         updateSystemBars()
         onFullscreenChanged(true)
+    }
+
+    private fun showFullscreenView(host: View) {
+        (host.parent as? ViewGroup)?.removeView(host)
+        val cluster = clusterHost
+        binding.fullscreenContainer.apply {
+            removeAllViews()
+            visibility = if (cluster == null) View.VISIBLE else View.GONE
+        }
+        (cluster ?: binding.fullscreenContainer).addView(host, FrameLayout.LayoutParams(-1, -1))
+        if (cluster == null) binding.fullscreenContainer.bringToFront()
     }
 
     fun exitFullscreen(
@@ -102,6 +125,8 @@ class FullscreenController(
         if (customView == null) return
         Log.i(TAG, "exitFullscreen fromWebChrome=$fromWebChrome")
 
+        touchHost?.let { (it.parent as? ViewGroup)?.removeView(it) }
+        touchHost = null
         binding.fullscreenContainer.apply {
             removeAllViews()
             visibility = View.GONE

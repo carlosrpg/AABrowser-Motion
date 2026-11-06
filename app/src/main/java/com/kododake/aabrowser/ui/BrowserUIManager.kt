@@ -22,6 +22,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.net.Uri
 import android.view.View
+import android.view.ViewGroup
 import android.view.Window
 import android.webkit.WebChromeClient
 import android.widget.Toast
@@ -81,6 +82,9 @@ class BrowserUIManager(
     )
 
     fun isInFullscreen(): Boolean = fullscreenController.isInFullscreen()
+    fun isPageFullscreen(): Boolean = fullscreenController.isPageFullscreen()
+    fun isClusterMode(): Boolean = fullscreenController.isClusterMode()
+    fun setClusterHost(host: ViewGroup?) = fullscreenController.setClusterHost(host)
     fun isImmersiveMode(): Boolean = fullscreenController.isImmersiveMode()
     fun setImmersiveMode(enabled: Boolean) = fullscreenController.setImmersiveMode(enabled)
 
@@ -90,7 +94,8 @@ class BrowserUIManager(
             callback = callback,
             onPrepareEnter = {
                 if (binding.menuOverlay.isVisible) hideMenuOverlay()
-                menuHelper.hideFab()
+                // With the video on the cluster, this screen keeps its menu button so cluster mode can be turned off.
+                if (!fullscreenController.isClusterMode()) menuHelper.hideFab()
                 tabManager.activeTab?.webView?.visibility = View.INVISIBLE
             }
         )

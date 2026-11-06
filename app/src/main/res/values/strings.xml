@@ -29,6 +29,7 @@
     
     <string name="menu_desktop_mode">Request desktop site</string>
     <string name="menu_fullscreen_mode">Request full screen</string>
+    <string name="menu_cluster_mode">Show video on cluster</string>
     <string name="menu_back">Back</string>
     <string name="menu_forward">Forward</string>
     <string name="menu_reload">Reload</string>

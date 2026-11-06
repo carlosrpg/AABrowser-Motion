@@ -38,6 +38,7 @@ import com.kododake.aabrowser.model.QuickActionButtonMode
 import com.kododake.aabrowser.model.YouTubeMix
 import com.kododake.aabrowser.tabs.BrowserTab
 import com.kododake.aabrowser.ui.MainActivitySetup
+import com.kododake.aabrowser.ui.controllers.ClusterPresentation
 import com.kododake.aabrowser.ui.controllers.NavigationButtonUpdater
 import com.kododake.aabrowser.ui.controllers.ProgressIndicatorController
 import com.kododake.aabrowser.ui.controllers.VoiceSearchController
@@ -104,9 +105,11 @@ class BrowserShellController(
             managers.uiManager.menuHelper.updateMediaState(state)
         },
         onMediaPositionRestoreAttempted = managers.uiManager::showMediaRestoreCueTemporarily,
-        isFullscreen = { managers.uiManager.isInFullscreen() },
+        isFullscreen = { managers.uiManager.isPageFullscreen() },
         onYouTubePagePolled = ::refreshMixesIfStale
     )
+
+    private val clusterPresentation = activity?.let { ClusterPresentation(it, onClosed = { setClusterMode(false) }) }
 
     private val voiceSearch = VoiceSearchController(
         context = context,
@@ -121,7 +124,8 @@ class BrowserShellController(
         binding = binding,
         menuHelper = managers.uiManager.menuHelper,
         isShowingStartPage = { managers.startPageManager.isShowingStartPage },
-        isInFullscreen = { managers.uiManager.isInFullscreen() }
+        isInFullscreen = { managers.uiManager.isInFullscreen() },
+        keepVisible = { managers.uiManager.isClusterMode() }
     )
 
     private val progressController = ProgressIndicatorController(binding.progressComposeView)
@@ -168,13 +172,16 @@ class BrowserShellController(
                 onAddressInputFocusChanged = hostContext::onAddressInputFocusChanged,
                 onMediaKey = mediaController::dispatchMediaKey,
                 onMediaPlayPause = mediaController::togglePlayback,
-                onMediaFullscreen = mediaController::toggleFullscreen
+                onMediaFullscreen = mediaController::toggleFullscreen,
+                onClusterModeChanged = ::setClusterMode
             )
         )
         setup.initializeUi(
             intentUrl = managers.navigationManager.extractBrowsableUrl(intent),
             shouldForceSessionRestore = shouldForceSessionRestore
         )
+        managers.uiManager.menuHelper.stateHolder.isClusterAvailable =
+            clusterPresentation != null && ClusterPresentation.isAvailable(context)
 
         updateNavigationButtons()
         managers.tabManager.refreshTabs()
@@ -247,7 +254,26 @@ class BrowserShellController(
         runCatching { CookieManager.getInstance().flush() }
     }
 
+    // Video on the instrument cluster: the page's fullscreen view is shown there while playback, the page and the
+    // media session (media buttons) stay where they are.
+    private fun setClusterMode(enabled: Boolean) {
+        val host = if (enabled) clusterPresentation?.show() else null
+        if (host == null) {
+            // Leave fullscreen first so the video goes straight back into the page on this screen.
+            managers.uiManager.exitFullscreen()
+            clusterPresentation?.dismiss()
+        }
+        managers.uiManager.setClusterHost(host)
+        mediaController.keepMaximized = host != null
+        managers.uiManager.menuHelper.stateHolder.isClusterMode = host != null
+        if (host != null) {
+            managers.uiManager.hideMenuOverlay()
+            menuFabController.showMenuButtonTemporarily()
+        }
+    }
+
     fun onDestroy() {
+        clusterPresentation?.dismiss()
         voiceSearch.stop()
         mediaController.captureCurrentPosition()
         mediaController.destroy()

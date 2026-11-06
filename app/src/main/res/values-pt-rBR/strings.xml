@@ -30,6 +30,7 @@
 
     <string name="menu_desktop_mode">Versão para computador</string>
     <string name="menu_fullscreen_mode">Tela cheia</string>
+    <string name="menu_cluster_mode">Vídeo no painel de instrumentos</string>
     <string name="menu_back">Voltar</string>
     <string name="menu_forward">Avançar</string>
     <string name="menu_reload">Recarregar</string>

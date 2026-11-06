@@ -36,6 +36,8 @@ class MenuStateHolder {
     var canQrCode by mutableStateOf(false)
     var isDesktopMode by mutableStateOf(false)
     var isFullscreenMode by mutableStateOf(false)
+    var isClusterAvailable by mutableStateOf(false)
+    var isClusterMode by mutableStateOf(false)
     var versionName by mutableStateOf("unknown")
     var isMenuVisible by mutableStateOf(false)
     var isReturningFromSubscreen by mutableStateOf(false)

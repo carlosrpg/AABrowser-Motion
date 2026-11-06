@@ -28,7 +28,9 @@ import android.os.Looper
 import android.os.SystemClock
 import android.provider.MediaStore
 import android.util.Log
+import android.view.InputDevice
 import android.view.KeyEvent
+import android.view.MotionEvent
 import android.webkit.WebView
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
@@ -91,6 +93,9 @@ internal class BrowserWebMediaController(
     private var pendingFullscreenAttempts = 0
     private var mediaFullscreenRestoreScheduled = false
     private var mixesRequestId = 0L
+
+    /** While on (video shown on the cluster), every playing video is maximized, including the next one in a mix. */
+    var keepMaximized = false
 
     private val heldMediaKeySeek = object : Runnable {
         override fun run() {
@@ -382,8 +387,29 @@ internal class BrowserWebMediaController(
         }
     }
 
+    // Chromium (the car's WebView 95 included) ignores requestFullscreen() without a user activation, and a scripted
+    // click carries none. Tap the player's top-left corner first (it only toggles the controls) so the click has one.
     fun toggleFullscreen() {
-        execute(FULLSCREEN_SCRIPT)
+        val webView = getWebView() ?: return
+        if (isFullscreen()) {
+            execute(FULLSCREEN_SCRIPT)
+            return
+        }
+        webView.evaluateJavascript(PLAYER_CORNER_SCRIPT) { result ->
+            val point = result?.trim('"')?.split(',')?.mapNotNull(String::toFloatOrNull)
+            if (point?.size == 2 && webView === getWebView()) tapWebView(webView, point[0], point[1])
+            handler.postDelayed({ execute(FULLSCREEN_SCRIPT) }, TAP_TO_CLICK_DELAY_MS)
+        }
+    }
+
+    private fun tapWebView(webView: WebView, x: Float, y: Float) {
+        val downTime = SystemClock.uptimeMillis()
+        for (action in intArrayOf(MotionEvent.ACTION_DOWN, MotionEvent.ACTION_UP)) {
+            val event = MotionEvent.obtain(downTime, SystemClock.uptimeMillis(), action, x, y, 0)
+            event.source = InputDevice.SOURCE_TOUCHSCREEN
+            webView.dispatchTouchEvent(event)
+            event.recycle()
+        }
     }
 
     /** Opens the mix, starts it, and maximizes the player once it is playing. */
@@ -590,6 +616,12 @@ internal class BrowserWebMediaController(
             )
         }
         publishState(newState)
+        if (keepMaximized && newState.isPlaying && newState.hasFullscreenButton && !isFullscreen() &&
+            pendingFullscreenMediaId != newState.mediaId
+        ) {
+            pendingFullscreenMediaId = newState.mediaId
+            pendingFullscreenAttempts = 0
+        }
         if (pendingFullscreenMediaId == newState.mediaId && newState.isPlaying && newState.hasFullscreenButton) {
             // The button appears late and clicks get swallowed while the player comes up, so retry for ~30 s.
             if (isFullscreen() || pendingFullscreenAttempts >= MAX_PENDING_FULLSCREEN_ATTEMPTS) {
@@ -938,6 +970,7 @@ internal class BrowserWebMediaController(
     private companion object {
         const val MONITOR_INTERVAL_MS = 3_000L
         const val MAX_MISSED_POLLS = 3
+        const val TAP_TO_CLICK_DELAY_MS = 150L
         const val MAX_ARTWORK_ATTEMPTS = 3
         const val RESTART_INSTEAD_OF_PREVIOUS_SECONDS = 10.0
         const val LONG_PRESS_MS = 500L
@@ -1431,6 +1464,22 @@ internal class BrowserWebMediaController(
                 button.click();
               }
             })();
+        """.trimIndent()
+
+        // View pixels of a point just inside the player's top-left corner, or "" when the player is not on screen.
+        val PLAYER_CORNER_SCRIPT = """
+            (function() {
+              const player = document.getElementById("movie_player") ||
+                document.querySelector(".html5-video-player");
+              if (!player) return "";
+              const r = player.getBoundingClientRect();
+              if (r.width < 40 || r.height < 40 || r.top < 0 || r.top + 24 > window.innerHeight) return "";
+              const vv = window.visualViewport;
+              const scale = (vv ? vv.scale : 1) * window.devicePixelRatio;
+              const x = (r.left + 12 - (vv ? vv.offsetLeft : 0)) * scale;
+              const y = (r.top + 12 - (vv ? vv.offsetTop : 0)) * scale;
+              return x + "," + y;
+            })()
         """.trimIndent()
 
         val FULLSCREEN_SCRIPT = """
