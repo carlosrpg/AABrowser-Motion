@@ -18,6 +18,7 @@
 package com.kododake.aabrowser.data.prefs
 
 import android.content.Context
+import com.kododake.aabrowser.gecko.GoogleSignInBridge
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -50,7 +51,7 @@ object TabSessionPreferences {
 
     fun persistUrl(context: Context, url: String) {
         val trimmed = url.trim()
-        if (!UrlFormatter.isHttpOrHttps(trimmed)) return
+        if (!UrlFormatter.isHttpOrHttps(trimmed) || GoogleSignInBridge.isHandedOff(context, trimmed)) return
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .putString(KEY_LAST_URL, trimmed)

@@ -20,6 +20,7 @@ package com.kododake.aabrowser.gecko
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.SystemClock
 import android.util.Log
@@ -57,6 +58,14 @@ object GoogleSignInBridge {
     private var requester: WeakReference<WebView>? = null
     private var lastCompletedAt = 0L
 
+    /** Only Android Automotive head units need GeckoView: phones (and Android Auto, which runs on the phone) keep WebView sign-in. */
+    fun isEnabled(context: Context): Boolean =
+        context.packageManager.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)
+
+    /** Sign-in pages Gecko takes over must never be saved as a tab's page, or every launch reopens sign-in. */
+    fun isHandedOff(context: Context, url: String?): Boolean =
+        url != null && isEnabled(context) && isSignInUrl(Uri.parse(url))
+
     fun isSignInUrl(uri: Uri?): Boolean {
         if (uri == null || uri.scheme?.lowercase() != "https") return false
         if (uri.host?.lowercase() != "accounts.google.com") return false
@@ -71,7 +80,7 @@ object GoogleSignInBridge {
      * Call from WebViewClient for main-frame navigations.
      */
     fun interceptIfNeeded(webView: WebView, uri: Uri?): Boolean {
-        if (!isSignInUrl(uri)) return false
+        if (!isSignInUrl(uri) || !isEnabled(webView.context)) return false
         if (SystemClock.elapsedRealtime() - lastCompletedAt < LOOP_GUARD_MS) {
             Log.w(TAG, "Sign-in requested again right after a hand-off; letting the WebView handle it")
             return false

@@ -19,6 +19,7 @@ package com.kododake.aabrowser.tabs
 
 import android.content.Context
 import com.kododake.aabrowser.data.BrowserPreferences
+import com.kododake.aabrowser.gecko.GoogleSignInBridge
 
 object TabStateStore {
 
@@ -29,7 +30,7 @@ object TabStateStore {
     ) {
         val entries = browserTabs.map { tab ->
             BrowserPreferences.TabSessionEntry(
-                url = tab.currentUrl.takeIf { u -> u.isNotBlank() },
+                url = tab.currentUrl.takeIf { u -> u.isNotBlank() && !GoogleSignInBridge.isHandedOff(context, u) },
                 title = tab.currentTitle.takeIf { t -> t.isNotBlank() }
             )
         }

@@ -137,20 +137,22 @@ fun PrivacyAndAboutComposable(
 
         Spacer(Modifier.height(3.dp))
 
-        ExpressiveListItem(
-            headline = stringResource(R.string.settings_google_sign_in),
-            supportingText = stringResource(R.string.settings_google_sign_in_description),
-            leadingIcon = Icons.Rounded.Devices,
-            position = ListGroupPosition.Middle,
-            onClick = {
-                com.kododake.aabrowser.gecko.GoogleSignInBridge.start(
-                    context,
-                    com.kododake.aabrowser.gecko.GoogleSignInBridge.YOUTUBE_SIGN_IN_URL
-                )
-            }
-        )
+        if (com.kododake.aabrowser.gecko.GoogleSignInBridge.isEnabled(context)) {
+            ExpressiveListItem(
+                headline = stringResource(R.string.settings_google_sign_in),
+                supportingText = stringResource(R.string.settings_google_sign_in_description),
+                leadingIcon = Icons.Rounded.Devices,
+                position = ListGroupPosition.Middle,
+                onClick = {
+                    com.kododake.aabrowser.gecko.GoogleSignInBridge.start(
+                        context,
+                        com.kododake.aabrowser.gecko.GoogleSignInBridge.YOUTUBE_SIGN_IN_URL
+                    )
+                }
+            )
 
-        Spacer(Modifier.height(3.dp))
+            Spacer(Modifier.height(3.dp))
+        }
 
         ExpressiveListItem(
             headline = stringResource(R.string.settings_youtube_ad_block),
@@ -312,7 +314,9 @@ fun PrivacyAndAboutComposable(
                 WebStorage.getInstance().deleteAllData()
                 CookieManager.getInstance().removeAllCookies(null)
                 // The Google sign-in engine keeps its own session; clear it too or the next sign-in reuses it.
-                com.kododake.aabrowser.gecko.GeckoEngine.clearAllData(context)
+                if (com.kododake.aabrowser.gecko.GoogleSignInBridge.isEnabled(context)) {
+                    com.kododake.aabrowser.gecko.GeckoEngine.clearAllData(context)
+                }
                 Toast.makeText(context, R.string.settings_clear_cookies_success_title, Toast.LENGTH_SHORT).show()
                 showClearCookiesDialog = false
             },
