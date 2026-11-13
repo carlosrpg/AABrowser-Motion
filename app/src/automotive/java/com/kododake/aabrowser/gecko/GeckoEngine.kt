@@ -49,7 +49,7 @@ object GeckoEngine {
     private var runtime: GeckoRuntime? = null
     private var port: WebExtension.Port? = null
     private var nextRequestId = 0
-    private val pending = HashMap<Int, (JSONArray?) -> Unit>()
+    private val pending = HashMap<Int, (JSONObject?) -> Unit>()
     private val waitingForPort = ArrayList<() -> Unit>()
 
     fun runtime(context: Context): GeckoRuntime {
@@ -90,11 +90,11 @@ object GeckoEngine {
         override fun onPortMessage(message: Any, port: WebExtension.Port) {
             val json = message as? JSONObject ?: return
             val callback = pending.remove(json.optInt("id", -1)) ?: return
-            if (json.optString("type") == "cookies") {
-                callback(json.optJSONArray("cookies"))
-            } else {
+            if (json.optString("type") == "error") {
                 Log.w(TAG, "Cookie bridge error: ${json.optString("message")}")
                 callback(null)
+            } else {
+                callback(json)
             }
         }
 
@@ -104,10 +104,20 @@ object GeckoEngine {
     }
 
     /** Reads every cookie in Gecko's jar. Calls back on the main thread with null on failure or timeout. */
-    fun requestCookies(context: Context, timeoutMs: Long = 8_000, callback: (JSONArray?) -> Unit) {
+    fun requestCookies(context: Context, timeoutMs: Long = 8_000, callback: (JSONArray?) -> Unit) =
+        request(context, JSONObject().put("type", "dump"), timeoutMs) { callback(it?.optJSONArray("cookies")) }
+
+    /** Seeds Gecko with the WebView's cookies ([url, name, value] objects). Calls back once done, failed or timed out. */
+    fun importCookies(context: Context, cookies: JSONArray, timeoutMs: Long = 5_000, callback: () -> Unit) =
+        request(context, JSONObject().put("type", "import").put("cookies", cookies), timeoutMs) { reply ->
+            Log.i(TAG, "Seeded Gecko from ${cookies.length()} WebView cookies: ${reply?.optInt("count") ?: "timed out"} updated")
+            callback()
+        }
+
+    private fun request(context: Context, message: JSONObject, timeoutMs: Long, callback: (JSONObject?) -> Unit) {
         runtime(context)
         var done = false
-        val finish: (JSONArray?) -> Unit = { result ->
+        val finish: (JSONObject?) -> Unit = { result ->
             if (!done) {
                 done = true
                 callback(result)
@@ -116,7 +126,7 @@ object GeckoEngine {
         val send = {
             val id = nextRequestId++
             pending[id] = finish
-            port?.postMessage(JSONObject().put("type", "dump").put("id", id)) ?: finish(null)
+            port?.postMessage(message.put("id", id)) ?: finish(null)
         }
         if (port != null) send() else waitingForPort.add(send)
         mainHandler.postDelayed({ finish(null) }, timeoutMs)

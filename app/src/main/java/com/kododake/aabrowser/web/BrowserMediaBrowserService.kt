@@ -140,7 +140,18 @@ open class BrowserMediaBrowserService : MediaBrowserServiceCompat() {
             ACTION_PREVIOUS -> mediaSession.controller.transportControls.skipToPrevious()
             ACTION_NEXT -> mediaSession.controller.transportControls.skipToNext()
         }
-        updateForState(BrowserMediaSessionRegistry.currentState())
+        val state = BrowserMediaSessionRegistry.currentState()
+        // Started with startForegroundService(): the system kills the whole app (and its playback) unless
+        // startForeground() follows, even when playback already stopped again before this ran.
+        if (intent?.action == ACTION_UPDATE && !isForeground) {
+            startForeground(
+                NOTIFICATION_ID,
+                createMediaNotification(state),
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+            )
+            isForeground = true
+        }
+        updateForState(state)
         return START_NOT_STICKY
     }
 
@@ -179,16 +190,15 @@ open class BrowserMediaBrowserService : MediaBrowserServiceCompat() {
                 )
             ).joinToString("\u0000")
             if (state.isPlaying) {
-                val notification = createMediaNotification(state)
                 if (!isForeground) {
                     startForeground(
                         NOTIFICATION_ID,
-                        notification,
+                        createMediaNotification(state),
                         ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
                     )
                     isForeground = true
                 } else if (notificationKey != lastNotificationKey) {
-                    notificationManager.notify(NOTIFICATION_ID, notification)
+                    notificationManager.notify(NOTIFICATION_ID, createMediaNotification(state))
                 }
                 lastNotificationKey = notificationKey
             } else {

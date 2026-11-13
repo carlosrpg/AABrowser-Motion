@@ -55,6 +55,11 @@ object GoogleSignInBridge {
         "/addsession", "/o/oauth2", "/signup"
     )
 
+    private val SEED_URLS = listOf(
+        "https://accounts.google.com/", "https://www.google.com/",
+        "https://accounts.youtube.com/", "https://www.youtube.com/", "https://m.youtube.com/"
+    )
+
     private var requester: WeakReference<WebView>? = null
     private var lastCompletedAt = 0L
 
@@ -107,6 +112,9 @@ object GoogleSignInBridge {
         for (i in 0 until cookies.length()) {
             val cookie = cookies.optJSONObject(i) ?: continue
             val (url, header) = toSetCookie(cookie) ?: continue
+            // Unchanged since the WebView seeded Gecko: keep the WebView's own copy, whose attributes are the real ones.
+            val pair = header.substringBefore(';')
+            if (manager.getCookie(url)?.split(';')?.any { it.trim() == pair } == true) continue
             manager.setCookie(url, header)
             copied++
         }
@@ -119,6 +127,21 @@ object GoogleSignInBridge {
             webView.loadUrl(continueUrl)
         }
         onDone(copied)
+    }
+
+    /** The WebView's Google/YouTube cookies as [url, name, value] objects, for seeding Gecko before sign-in. */
+    fun webViewCookies(): JSONArray {
+        val manager = CookieManager.getInstance()
+        val cookies = JSONArray()
+        for (url in SEED_URLS) {
+            manager.getCookie(url)?.split(';')?.forEach { pair ->
+                val name = pair.substringBefore('=').trim()
+                if (name.isNotEmpty() && '=' in pair) {
+                    cookies.put(JSONObject().put("url", url).put("name", name).put("value", pair.substringAfter('=')))
+                }
+            }
+        }
+        return cookies
     }
 
     fun cancel() {

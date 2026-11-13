@@ -73,7 +73,8 @@ internal class BrowserWebMediaController(
     private var youtubePreviousUrl: String? = null
     private var lastMetadataKey: String? = null
     private var lastCompleteState: BrowserMediaState? = null
-    private var missedPolls = 0
+    private val hold = MediaHold(HOLD_MS, MISS_HOLD_MS)
+    private var pollPendingSince = 0L
     private var incompletePolls = 0
     private var artworkUrl: String? = null
     private var artworkBitmap: Bitmap? = null
@@ -200,17 +201,33 @@ internal class BrowserWebMediaController(
     private val poll = object : Runnable {
         override fun run() {
             if (isDestroyed) return
-            val webView = getWebView()
-            if (webView == null) {
-                currentWebView = null
-                updateState(null)
-            } else {
-                currentWebView = webView
-                webView.evaluateJavascript(createMonitorScript()) { result ->
-                    onMonitorResult(webView, result)
+            try {
+                val now = SystemClock.elapsedRealtime()
+                // The page never answered (renderer hung, crashed or gone): a missed poll, so the session
+                // cannot keep showing a state nobody is confirming any more.
+                if (pollPendingSince != 0L && now - pollPendingSince >= POLL_ANSWER_TIMEOUT_MS) {
+                    pollPendingSince = 0L
+                    updateState(null)
                 }
+                val webView = getWebView()
+                currentWebView = webView
+                if (webView == null) {
+                    pollPendingSince = 0L
+                    updateState(null)
+                } else {
+                    if (pollPendingSince == 0L) pollPendingSince = now
+                    webView.evaluateJavascript(createMonitorScript()) { result ->
+                        onMonitorResult(webView, result)
+                    }
+                }
+            } catch (error: RuntimeException) {
+                // This loop is the only thing keeping the car's media controls in sync: it must outlive
+                // anything a poll can throw (a WebView destroyed under it, a bad page).
+                Log.w(TAG, "media poll failed", error)
+            } finally {
+                handler.removeCallbacks(this)
+                handler.postDelayed(this, if (hold.isHolding) HOLD_POLL_INTERVAL_MS else MONITOR_INTERVAL_MS)
             }
-            handler.postDelayed(this, MONITOR_INTERVAL_MS)
         }
     }
 
@@ -226,7 +243,7 @@ internal class BrowserWebMediaController(
     }
 
     fun togglePlayback() {
-        execute(if (mediaState.isPlaying) PAUSE_SCRIPT else PLAY_SCRIPT)
+        if (mediaState.isPlaying) pauseFromMediaSession() else execute(PLAY_SCRIPT)
     }
 
     fun isPlaying(): Boolean = mediaState.isPlaying
@@ -318,6 +335,7 @@ internal class BrowserWebMediaController(
     }
 
     internal fun pauseFromMediaSession() {
+        hold.pauseRequested()
         execute(PAUSE_SCRIPT)
     }
 
@@ -337,12 +355,12 @@ internal class BrowserWebMediaController(
         execute(
             """
                 (function() {
-                  const player = document.getElementById("movie_player");
+                  $MAIN_PLAYER_JS
                   if (player && typeof player.seekTo === "function") {
                     player.seekTo($seconds, true);
                     return;
                   }
-                  const media = Array.from(document.querySelectorAll("video,audio"))
+                  const media = main || Array.from(document.querySelectorAll("video,audio"))
                     .find(item => !item.error && Number.isFinite(item.duration));
                   if (media) media.currentTime = Math.min($seconds, media.duration);
                 })();
@@ -519,18 +537,21 @@ internal class BrowserWebMediaController(
     private fun onMonitorResult(webView: WebView, result: String?) {
         if (isDestroyed || webView !== currentWebView || webView !== getWebView()) return
 
-        if (result.isNullOrBlank() || result == "null") return
+        pollPendingSince = 0L
         val data = try {
-            when (val parsed = JSONTokener(result).nextValue()) {
+            when (val parsed = JSONTokener(result ?: "null").nextValue()) {
                 is String -> JSONObject(parsed)
                 is JSONObject -> parsed
-                else -> {
-                    Log.w(TAG, "Unexpected media monitor result: $parsed")
-                    return
-                }
+                else -> null // "null": the script threw, or the document was going away
             }
         } catch (error: JSONException) {
-            Log.w(TAG, "Could not parse media monitor result", error)
+            null
+        }
+        val scriptError = data?.optString("error").orEmpty()
+        if (data == null || scriptError.isNotEmpty()) {
+            // A missed poll like any other: silently ignoring it left the last state on the car forever.
+            if (mediaState.isAvailable) Log.w(TAG, "media monitor gave no state: ${scriptError.ifEmpty { result }}")
+            updateState(null)
             return
         }
         unmuteMutedMedia(webView, data)
@@ -547,14 +568,16 @@ internal class BrowserWebMediaController(
     }
 
     private fun updateState(data: JSONObject?) {
+        val now = SystemClock.elapsedRealtime()
         if (data == null || !data.optBoolean("found")) {
-            // YouTube swapping videos or ads, or a page mid-navigation, can miss a poll. Tearing the session down for
-            // that blanks the car's media controls and drops the playback notification, so wait for a few in a row.
-            if (mediaState.isAvailable && ++missedPolls < MAX_MISSED_POLLS) {
-                Log.i(TAG, "media poll found nothing ($missedPolls/$MAX_MISSED_POLLS), keeping ${mediaState.mediaId}")
+            // YouTube swapping videos or ads, a page mid-navigation or a renderer that did not answer can miss
+            // polls. Tearing the session down for that blanks the car's media controls and drops the playback
+            // notification, so the last state is kept until the hold runs out.
+            if (mediaState.isAvailable && hold.keepOnMiss(now)) {
+                Log.i(TAG, "media poll found nothing, keeping ${mediaState.mediaId}")
                 return
             }
-            missedPolls = 0
+            hold.reset()
             isYouTubePlaylist = false
             youtubeNextUrl = null
             youtubePreviousUrl = null
@@ -568,7 +591,6 @@ internal class BrowserWebMediaController(
             publishSessionState(BrowserMediaState.None, updateMetadata = true)
             return
         }
-        missedPolls = 0
 
         isYouTubePlaylist = data.optBoolean("isPlaylist")
         youtubeNextUrl = validatedYouTubePlaylistUrl(data.optString("nextUrl"))
@@ -586,7 +608,8 @@ internal class BrowserWebMediaController(
         }
         val newState = BrowserMediaState(
             isAvailable = true,
-            isPlaying = data.optBoolean("playing"),
+            // Held as playing through a video change; see MediaHold.
+            isPlaying = hold.playing(data.optBoolean("playing"), data.optBoolean("paused"), now),
             canSkipPrevious = data.optBoolean("hasPrevious"),
             canSkipNext = data.optBoolean("hasNext"),
             hasFullscreenButton = data.optBoolean("hasFullscreenButton"),
@@ -652,10 +675,25 @@ internal class BrowserWebMediaController(
         val drifted = metadataKey == lastMetadataKey &&
             BrowserMediaSessionRegistry.isActive(this) && !sessionShows(newState)
         if (drifted) Log.i(TAG, "media session showed stale metadata, re-publishing ${newState.mediaId}")
-        val updateMetadata = metadataKey != lastMetadataKey || drifted
+        // A playing shell that is about to take the session over from another one brings its metadata along.
+        val takingOver = newState.isPlaying && !BrowserMediaSessionRegistry.isActive(this)
+        val updateMetadata = metadataKey != lastMetadataKey || drifted || takingOver
         lastMetadataKey = metadataKey
         updateArtwork(newState.artworkUrl)
         publishSessionState(newState, updateMetadata)
+        verifySessionPlayback(newState)
+    }
+
+    // Reads the playback state back from the system (what the car's media card sees, not our own copy) and
+    // publishes everything again if it is not what was just sent.
+    private fun verifySessionPlayback(state: BrowserMediaState) {
+        if (!BrowserMediaSessionRegistry.isActive(this)) return
+        val expected = if (state.isPlaying) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED
+        val shown = (mediaSession.controller.mediaController as? android.media.session.MediaController)
+            ?.playbackState?.state
+        if (shown == expected && mediaSession.isActive) return
+        Log.w(TAG, "media session out of sync (state=$shown active=${mediaSession.isActive}, expected $expected), re-publishing")
+        publishSessionState(state, updateMetadata = true)
     }
 
     private fun sessionShows(state: BrowserMediaState): Boolean {
@@ -962,6 +1000,10 @@ internal class BrowserWebMediaController(
         val webView = getWebView() ?: return
         val source = script.replace(BROWSER_URL_PLACEHOLDER, JSONObject.quote(getPageUrl()))
         webView.evaluateJavascript(source, null)
+        // Re-read the page right after a command so the car sees play/pause/skip now, not on the next 3 s poll
+        // (users pressed again when nothing changed, toggling playback back).
+        handler.removeCallbacks(poll)
+        handler.postDelayed(poll, COMMAND_POLL_DELAY_MS)
     }
 
     private fun createMonitorScript(): String =
@@ -969,6 +1011,14 @@ internal class BrowserWebMediaController(
 
     private companion object {
         const val MONITOR_INTERVAL_MS = 3_000L
+        const val COMMAND_POLL_DELAY_MS = 300L
+        // Longest unclear stretch ridden out as "still playing". Measured on m.youtube.com: 10.6 s from the end of
+        // a video to the next one starting ("up next" countdown), plus a poll that can be 3 s old.
+        const val HOLD_MS = 20_000L
+        // The same, for a page that shows no media at all or stops answering.
+        const val MISS_HOLD_MS = 10_000L
+        const val HOLD_POLL_INTERVAL_MS = 1_000L
+        const val POLL_ANSWER_TIMEOUT_MS = 2_500L
         const val MAX_MISSED_POLLS = 3
         const val TAP_TO_CLICK_DELAY_MS = 150L
         const val MAX_ARTWORK_ATTEMPTS = 3
@@ -1218,8 +1268,18 @@ internal class BrowserWebMediaController(
               return null;
             })()
         """.trimIndent()
+        // The player the monitor follows (bridge.main, see MONITOR_SCRIPT), so commands reach the same one on
+        // pages with several players; #movie_player until the first poll has run.
+        const val MAIN_PLAYER_JS = """
+              const bridge = window.__aaBrowserMotionMedia;
+              const main = bridge && bridge.main && bridge.main.isConnected ? bridge.main : null;
+              const player = (main && main.closest(".html5-video-player")) ||
+                document.getElementById("movie_player");
+        """
+
         val MONITOR_SCRIPT = """
             (function() {
+              try {
               const key = "__aaBrowserMotionMedia";
               let bridge = window[key];
               if (!bridge) {
@@ -1235,23 +1295,6 @@ internal class BrowserWebMediaController(
                   };
                 }
               }
-              const players = Array.from(document.querySelectorAll("audio,video"))
-                .filter(player => !player.error && (player.currentSrc || player.src || player.querySelector("source[src]")));
-              const active = players.find(player => !player.paused && !player.ended);
-              const mediaPlayer = active || players[0] || null;
-              const metadata = navigator.mediaSession && navigator.mediaSession.metadata;
-              const youtubePlayer = document.getElementById("movie_player") ||
-                document.querySelector(".html5-video-player");
-              let youtubeVideoData = null;
-              let youtubePlayerState = -1;
-              try {
-                if (youtubePlayer && typeof youtubePlayer.getVideoData === "function") {
-                  youtubeVideoData = youtubePlayer.getVideoData();
-                }
-                if (youtubePlayer && typeof youtubePlayer.getPlayerState === "function") {
-                  youtubePlayerState = youtubePlayer.getPlayerState();
-                }
-              } catch (_) {}
               let pageUrl = new URL(location.href);
               try {
                 const browserUrl = new URL(__AA_BROWSER_CURRENT_URL__);
@@ -1263,6 +1306,48 @@ internal class BrowserWebMediaController(
               } catch (_) {}
               const isYouTube = /(^|\.)(youtube|youtube-nocookie)\.com$/i.test(location.hostname) ||
                 /(^|\.)(youtube|youtube-nocookie)\.com$/i.test(pageUrl.hostname);
+              // Pick the page's main media. A page can hold several players at once (YouTube: the main or mini
+              // player, Shorts, a muted preview per thumbnail), so "the first one playing" reported a preview as
+              // the video and dropped it again when the preview stopped. Anything audible wins. Muted playback
+              // counts only for a main player: on YouTube the page's own players (previews are separate ones),
+              // elsewhere anything but loops and short clips. A paused player counts only while it is laid out
+              // (the mobile site keeps a hidden one holding its last video).
+              const area = m => { const r = m.getBoundingClientRect(); return r.width * r.height; };
+              const isMain = m => isYouTube
+                ? !!m.closest("#movie_player, #shorts-player")
+                : !m.loop && !(m.duration > 0 && m.duration < 30);
+              const rank = m => {
+                if (m.error || !(m.currentSrc || m.src || m.querySelector("source[src]"))) return 0;
+                if (!m.paused && !m.ended) return !m.muted && m.volume > 0 ? 3 : isMain(m) ? 2 : 0;
+                return isMain(m) && (m.tagName === "AUDIO" || area(m) > 0) ? 1 : 0;
+              };
+              let mediaPlayer = null;
+              let mediaRank = 0;
+              document.querySelectorAll("audio,video").forEach(m => {
+                const r = rank(m);
+                // Ties stay with the player already followed, then go to the larger one.
+                if (r > mediaRank || (r > 0 && r === mediaRank && mediaPlayer !== bridge.main &&
+                    (m === bridge.main || area(m) > area(mediaPlayer)))) {
+                  mediaPlayer = m;
+                  mediaRank = r;
+                }
+              });
+              bridge.main = mediaPlayer;
+              const active = mediaRank >= 2 ? mediaPlayer : null;
+              const metadata = navigator.mediaSession && navigator.mediaSession.metadata;
+              // The player the chosen element belongs to: desktop Shorts also keeps an idle #movie_player.
+              const youtubePlayer = (mediaPlayer && mediaPlayer.closest(".html5-video-player")) ||
+                document.getElementById("movie_player") || document.getElementById("shorts-player");
+              let youtubeVideoData = null;
+              let youtubePlayerState = null;
+              try {
+                if (youtubePlayer && typeof youtubePlayer.getVideoData === "function") {
+                  youtubeVideoData = youtubePlayer.getVideoData();
+                }
+                if (youtubePlayer && typeof youtubePlayer.getPlayerState === "function") {
+                  youtubePlayerState = youtubePlayer.getPlayerState();
+                }
+              } catch (_) {}
               const pageVideoId = pageUrl.searchParams.get("v") ||
                 (pageUrl.pathname.indexOf("/shorts/") === 0
                   ? pageUrl.pathname.substring("/shorts/".length).split("/")[0] : "");
@@ -1312,10 +1397,11 @@ internal class BrowserWebMediaController(
                 "ytm-playlist-panel-renderer, ytd-playlist-panel-renderer, ytmusic-player-queue"
               );
               const isPlaylist = !!playlistId || !!playlistPanel;
-              const fullscreenButton = document.querySelector(".ytp-fullscreen-button") ||
+              const playerScope = youtubePlayer || document;
+              const fullscreenButton = playerScope.querySelector(".ytp-fullscreen-button") ||
                 document.querySelector(".icon-button.fullscreen-icon");
-              const youtubeNextButton = document.querySelector(".ytp-next-button");
-              const youtubePreviousButton = document.querySelector(".ytp-prev-button");
+              const youtubeNextButton = playerScope.querySelector(".ytp-next-button");
+              const youtubePreviousButton = playerScope.querySelector(".ytp-prev-button");
               const controls = Array.from(
                 document.querySelectorAll(".player-middle-controls-prev-next-button")
               );
@@ -1328,16 +1414,22 @@ internal class BrowserWebMediaController(
               const unmutePrompt = document.querySelector(".ytp-unmute");
               const mediaMuted = !!mediaPlayer && (mediaPlayer.muted || mediaPlayer.volume === 0);
               const mediaKey = mediaPlayer ? (mediaPlayer.currentSrc || mediaPlayer.src) : "";
-              if (active && !mediaMuted && active === mediaPlayer) bridge.heard = mediaKey;
+              if (active && !mediaMuted) bridge.heard = mediaKey;
               const muted = isYouTube
                 ? !!pageVideoId && !!unmutePrompt && unmutePrompt.getBoundingClientRect().width > 0
-                : !!active && active === mediaPlayer && mediaMuted && bridge.heard !== mediaKey &&
-                  !mediaPlayer.loop && !(mediaPlayer.duration > 0 && mediaPlayer.duration < 30);
+                : !!active && mediaMuted && bridge.heard !== mediaKey;
               bridge.mutedMedia = muted ? mediaPlayer : null;
+              const playing = !!active || youtubePlayerState === 1;
+              // A deliberate pause. Ended, unstarted, cued or still loading means the video is changing, which
+              // the app rides out (MediaHold) instead of telling the car that playback stopped.
+              const paused = !playing && (youtubePlayerState !== null
+                ? youtubePlayerState === 2
+                : !!mediaPlayer && mediaPlayer.paused && !mediaPlayer.ended && mediaPlayer.readyState >= 2);
               return JSON.stringify({
-                found: players.length > 0 || !!youtubeVideoId || !!fullscreenButton,
+                found: !!mediaPlayer || !!youtubeVideoId,
                 isYouTube: isYouTube,
-                playing: !!active || youtubePlayerState === 1,
+                playing: playing,
+                paused: paused,
                 title: title,
                 artist: artist,
                 album: album,
@@ -1367,17 +1459,21 @@ internal class BrowserWebMediaController(
                 // only a loaded video (duration known) gets the maximize control.
                 hasFullscreenButton: !!fullscreenButton && duration > 0
               });
+              } catch (error) {
+                // Reported instead of thrown: a throw reads as "null", which looks like an empty page.
+                return JSON.stringify({ error: String(error) });
+              }
             })()
         """.trimIndent()
 
         val PLAY_SCRIPT = """
             (function() {
-              const player = document.getElementById("movie_player");
+              $MAIN_PLAYER_JS
               if (player && typeof player.playVideo === "function") {
                 player.playVideo();
                 return;
               }
-              const media = Array.from(document.querySelectorAll("video,audio"))
+              const media = main || Array.from(document.querySelectorAll("video,audio"))
                 .find(item => !item.error && !item.ended);
               if (media && media.paused) media.play().catch(() => {});
             })();
@@ -1386,8 +1482,7 @@ internal class BrowserWebMediaController(
         // Acts on what MONITOR_SCRIPT judged muted: YouTube through its player API, other sites on the flagged element.
         val UNMUTE_SCRIPT = """
             (function() {
-              const player = document.getElementById("movie_player") ||
-                document.querySelector(".html5-video-player");
+              $MAIN_PLAYER_JS
               if (player && typeof player.unMute === "function") {
                 player.unMute();
                 if (typeof player.getVolume === "function" &&
@@ -1396,7 +1491,6 @@ internal class BrowserWebMediaController(
                   player.setVolume(100);
                 }
               }
-              const bridge = window.__aaBrowserMotionMedia;
               const media = bridge && bridge.mutedMedia;
               if (media) {
                 media.muted = false;
@@ -1407,12 +1501,12 @@ internal class BrowserWebMediaController(
 
         val PAUSE_SCRIPT = """
             (function() {
-              const player = document.getElementById("movie_player");
+              $MAIN_PLAYER_JS
               if (player && typeof player.pauseVideo === "function") {
                 player.pauseVideo();
                 return;
               }
-              const media = Array.from(document.querySelectorAll("video,audio"))
+              const media = main || Array.from(document.querySelectorAll("video,audio"))
                 .find(item => !item.error && !item.paused);
               if (media) media.pause();
             })();
@@ -1420,7 +1514,8 @@ internal class BrowserWebMediaController(
 
         val YOUTUBE_PREVIOUS_SCRIPT = """
             (function() {
-              const button = document.querySelector(".ytp-prev-button");
+              $MAIN_PLAYER_JS
+              const button = (player || document).querySelector(".ytp-prev-button");
               if (button) {
                 button.click();
                 return;
@@ -1432,7 +1527,8 @@ internal class BrowserWebMediaController(
 
         val YOUTUBE_NEXT_SCRIPT = """
             (function() {
-              const button = document.querySelector(".ytp-next-button");
+              $MAIN_PLAYER_JS
+              const button = (player || document).querySelector(".ytp-next-button");
               if (button) {
                 button.click();
                 return;
@@ -1469,8 +1565,7 @@ internal class BrowserWebMediaController(
         // View pixels of a point just inside the player's top-left corner, or "" when the player is not on screen.
         val PLAYER_CORNER_SCRIPT = """
             (function() {
-              const player = document.getElementById("movie_player") ||
-                document.querySelector(".html5-video-player");
+              $MAIN_PLAYER_JS
               if (!player) return "";
               const r = player.getBoundingClientRect();
               if (r.width < 40 || r.height < 40 || r.top < 0 || r.top + 24 > window.innerHeight) return "";
@@ -1484,7 +1579,8 @@ internal class BrowserWebMediaController(
 
         val FULLSCREEN_SCRIPT = """
             (function() {
-              const youtubeButton = document.querySelector(".ytp-fullscreen-button");
+              $MAIN_PLAYER_JS
+              const youtubeButton = (player || document).querySelector(".ytp-fullscreen-button");
               const button = youtubeButton ||
                 document.querySelector(".icon-button.fullscreen-icon");
               if (button) button.click();
@@ -1494,12 +1590,12 @@ internal class BrowserWebMediaController(
         const val SEEK_TO_POSITION_SCRIPT = """
             (function() {
               const seconds = __AA_BROWSER_SEEK_SECONDS__;
-              const player = document.getElementById("movie_player");
+              $MAIN_PLAYER_JS
               if (player && typeof player.seekTo === "function") {
                 player.seekTo(seconds, true);
                 return true;
               }
-              const media = Array.from(document.querySelectorAll("video,audio"))
+              const media = main || Array.from(document.querySelectorAll("video,audio"))
                 .find(item => !item.error && Number.isFinite(item.duration));
               if (!media) return false;
               media.currentTime = Math.min(seconds, media.duration);
@@ -1509,9 +1605,9 @@ internal class BrowserWebMediaController(
 
         val CURRENT_POSITION_SCRIPT = """
             (function() {
-              const player = document.getElementById("movie_player");
+              $MAIN_PLAYER_JS
               if (player && typeof player.getCurrentTime === "function") return player.getCurrentTime();
-              const media = Array.from(document.querySelectorAll("video,audio"))
+              const media = main || Array.from(document.querySelectorAll("video,audio"))
                 .find(item => !item.error && !item.paused) ||
                 document.querySelector("video,audio");
               return media ? media.currentTime : 0;
@@ -1521,13 +1617,13 @@ internal class BrowserWebMediaController(
         const val SEEK_BY_SCRIPT = """
             (function() {
               const delta = __AA_BROWSER_SEEK_DELTA__;
-              const player = document.getElementById("movie_player");
+              $MAIN_PLAYER_JS
               if (player && typeof player.seekTo === "function" &&
                   typeof player.getCurrentTime === "function") {
                 player.seekTo(Math.max(0, player.getCurrentTime() + delta), true);
                 return;
               }
-              const media = Array.from(document.querySelectorAll("video,audio"))
+              const media = main || Array.from(document.querySelectorAll("video,audio"))
                 .find(item => !item.error && Number.isFinite(item.duration));
               if (media) media.currentTime = Math.min(Math.max(0, media.currentTime + delta), media.duration);
             })();

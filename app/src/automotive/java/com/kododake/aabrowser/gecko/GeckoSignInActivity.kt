@@ -69,7 +69,10 @@ class GeckoSignInActivity : AppCompatActivity() {
         attachDelegates()
         session.open(GeckoEngine.runtime(this))
         geckoView.setSession(session)
-        session.loadUri(startUrl)
+        // Start from the WebView's current Google session (rotated tokens, known accounts) instead of Gecko's older one.
+        GeckoEngine.importCookies(this, GoogleSignInBridge.webViewCookies()) {
+            if (!isDestroyed) session.loadUri(startUrl)
+        }
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
