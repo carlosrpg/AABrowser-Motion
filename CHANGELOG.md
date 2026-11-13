@@ -3,9 +3,12 @@
 ## Unreleased
 - Releases are split in two APKs. `Motion-<version>.apk` (phones, Android Auto, Android Automotive) no longer bundles GeckoView and is back to its old size. `Motion-<version>-automotive-<arch>.apk` (arm64, armv7 or x86_64) is for Android Automotive head units and keeps the GeckoView Google sign-in; its native code is now compressed (about 160 MB instead of 264 MB).
 - Android Automotive: sign in to Google through a bundled GeckoView engine (head units ship a WebView too old for Google to accept); the session is then copied into the browser. Phones and Android Auto keep signing in in the WebView.
+- Android Automotive: Google sign-in now starts from the browser's current Google session (the WebView's cookies are copied into GeckoView first), so the account is recognized instead of starting from an old one; cookies that did not change are no longer rewritten when copying back.
 - Android Automotive: new "Show video on cluster" menu switch shows the playing video full screen on the instrument cluster; media buttons keep working, and the next video in a mix goes there too.
 - "Request full screen" now really uses the whole screen on Android Automotive (no empty bands where the system bars were).
 - Car media controls keep showing the playing video: a brief gap while YouTube changes video no longer clears them, title and thumbnail stay consistent during track changes, and failed thumbnails are retried.
+- Car media controls no longer lose the playing video: on pages with several players (YouTube's main or mini player next to thumbnail previews, Shorts) the real player is followed instead of the first one found, so a muted preview can no longer show up as "playing" and vanish again; a video change (next in a mix, the "up next" countdown, an ad boundary) is no longer reported as a stop; and if the page stops answering, the controls are cleared and come back by themselves once it answers. Car play, pause, skip and seek act on that same player.
+- Car media buttons respond faster: play, pause, skip and seek now show on the car's media controls right away instead of up to 3 seconds later.
 - Media that starts muted (YouTube's "Tap to unmute", or another site's main player) is unmuted automatically; a mute you chose is kept.
 - Maximizing a YouTube video (Mixes, maximized restore, the fullscreen control) now works on older WebViews such as 95, which ignored the scripted fullscreen request.
 - After a Google sign-in, a restart reopens the previous page instead of the sign-in screen.
