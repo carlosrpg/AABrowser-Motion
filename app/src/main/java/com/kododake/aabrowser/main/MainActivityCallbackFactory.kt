@@ -113,7 +113,7 @@ class MainActivityCallbackFactory(
         override fun requestSpeechRecognitionMicrophoneAccess(tabId: Long, pageUrl: String?) {
             provider.permissionManager.requestSpeechRecognitionMicrophoneAccess(tabId, pageUrl) { granted ->
                 val tab = provider.tabManager.browserTabs.firstOrNull { it.id == tabId }
-                tab?.speechBridge?.onPermissionResult(granted)
+                tab?.page?.onMicrophonePermissionResult(granted)
             }
         }
         override fun onSpeechTabClosed(tabId: Long) {

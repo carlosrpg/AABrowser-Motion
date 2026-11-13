@@ -17,20 +17,17 @@
 
 package com.kododake.aabrowser.tabs
 
-import android.app.Activity
 import android.content.Context
 import android.net.Uri
+import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
-import androidx.webkit.WebViewCompat
-import androidx.webkit.WebViewFeature
-import com.kododake.aabrowser.data.BrowserPreferences
+import com.kododake.aabrowser.gecko.GeckoSupport
 import com.kododake.aabrowser.web.BrowserCallbacks
-import com.kododake.aabrowser.web.SpeechRecognitionBridge
-import com.kododake.aabrowser.web.configureWebView
+import com.kododake.aabrowser.web.WebViewPage
 
 /**
- * Factory for instantiating and configuring WebView instances and their associated BrowserTab wrappers.
+ * Creates a tab and its page: GeckoView on the automotive build, the system WebView otherwise.
  */
 object BrowserTabFactory {
 
@@ -47,90 +44,36 @@ object BrowserTabFactory {
         onShowMenuButtonTemporarily: () -> Unit,
         onPageDragChanged: (Boolean) -> Unit = {}
     ): BrowserTab {
-        val tabView = object : android.webkit.WebView(context) {
-            // Chromium pauses video once the window is hidden; keep it "visible" so media plays in the background.
-            // Idle pages are still paused via WebView.onPause() in BrowserShellController.onPause().
-            override fun onWindowVisibilityChanged(visibility: Int) {
-                if (visibility != View.GONE) super.onWindowVisibilityChanged(View.VISIBLE)
-            }
-
-            // Detaching hides the page for Chromium (pausing video); logged to diagnose car-host teardowns.
-            override fun onDetachedFromWindow() {
-                android.util.Log.i("BrowserTab", "WebView detached from window: $url")
-                super.onDetachedFromWindow()
-            }
-        }.apply {
+        val page = GeckoSupport.createPage(context) ?: WebViewPage(
+            context,
+            onRequestSpeechMicrophone = { pageUrl -> onRequestSpeechMicrophone(tabId, pageUrl) },
+            onSanitizeJsExternalUrl = onSanitizeJsExternalUrl,
+            onOpenUriExternally = onOpenUriExternally
+        )
+        page.view.apply {
             layoutParams = FrameLayout.LayoutParams(-1, -1)
-            overScrollMode = View.OVER_SCROLL_NEVER
             visibility = View.GONE
         }
 
-        lateinit var tab: BrowserTab
-        val speechBridge = SpeechRecognitionBridge(tabView) { pageUrl ->
-            onRequestSpeechMicrophone(tab.id, pageUrl)
-        }
-
-        tab = BrowserTab(
+        val tab = BrowserTab(
             id = tabId,
-            webView = tabView,
-            speechBridge = speechBridge,
+            page = page,
             currentUrl = initialUrl.orEmpty(),
             currentTitle = initialTitle,
             isActive = activate
         )
+        page.attach(createBrowserCallbacks(tab))
 
-        configureWebView(
-            tabView,
-            createBrowserCallbacks(tab),
-            BrowserPreferences.shouldUseDesktopMode(context),
-            BrowserPreferences.getUserAgentProfile(context),
-            BrowserPreferences.isDrmL3EnforcerEnabled(context),
-            BrowserPreferences.isYouTubeAdBlockEnabled(context)
-        )
-        setupWebMessageListener(tabView, speechBridge)
-        setupJavascriptInterface(context, tabView, onSanitizeJsExternalUrl, onOpenUriExternally)
-
-        tabView.setOnTouchListener { _, event ->
+        page.view.setOnTouchListener { _, event ->
             onShowMenuButtonTemporarily()
             when (event.actionMasked) {
-                android.view.MotionEvent.ACTION_MOVE -> onPageDragChanged(true)
-                android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> onPageDragChanged(false)
+                MotionEvent.ACTION_MOVE -> onPageDragChanged(true)
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> onPageDragChanged(false)
             }
             false
         }
-        tabView.onPause()
+        page.onPause()
 
         return tab
-    }
-
-    private fun setupWebMessageListener(webView: android.webkit.WebView, speechBridge: SpeechRecognitionBridge) {
-        if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
-            WebViewCompat.addWebMessageListener(
-                webView,
-                SpeechRecognitionBridge.BRIDGE_OBJECT_NAME,
-                setOf("*")
-            ) { webViewInstance, message, sourceOrigin, isMainFrame, _ ->
-                speechBridge.handleWebMessage(message, sourceOrigin, isMainFrame, webViewInstance.url)
-            }
-        }
-    }
-
-    private fun setupJavascriptInterface(
-        context: Context,
-        webView: android.webkit.WebView,
-        onSanitizeJsExternalUrl: (android.webkit.WebView, String?) -> Uri?,
-        onOpenUriExternally: (Uri) -> Unit
-    ) {
-        webView.addJavascriptInterface(object {
-            @android.webkit.JavascriptInterface
-            fun openExternal(url: String) {
-                (context as? Activity)?.runOnUiThread {
-                    val safeUri = onSanitizeJsExternalUrl(webView, url)
-                    if (safeUri != null) {
-                        onOpenUriExternally(safeUri)
-                    }
-                }
-            }
-        }, "Android")
     }
 }

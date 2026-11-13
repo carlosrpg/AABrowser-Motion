@@ -31,7 +31,6 @@ import android.util.Log
 import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
-import android.webkit.WebView
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
@@ -49,7 +48,8 @@ import org.json.JSONTokener
 
 internal class BrowserWebMediaController(
     context: Context,
-    private val getWebView: () -> WebView?,
+    private val getPage: () -> BrowserPage?,
+    private val isPageOpen: (BrowserPage) -> Boolean,
     private val getPageTitle: () -> String,
     private val getPageUrl: () -> String,
     private val onStateChanged: (BrowserMediaState) -> Unit,
@@ -63,7 +63,10 @@ internal class BrowserWebMediaController(
     private val appIcon = createAppIcon()
     private val artworkExecutor = Executors.newSingleThreadExecutor()
     private val mediaSession = BrowserMediaSessionRegistry.attach(applicationContext, this)
-    private var currentWebView: WebView? = null
+    private var currentWebView: BrowserPage? = null
+    // The page whose media the car shows: the active tab, or, while that has none, the last tab that had some
+    // (a video keeps playing when its tab is not the active one, or the app is in the background).
+    private var mediaPage: BrowserPage? = null
     private var mediaState = BrowserMediaState.None
     private var isDestroyed = false
     private var mediaPositionRestoreAttempts = 0
@@ -92,6 +95,7 @@ internal class BrowserWebMediaController(
     // Video id whose player should be sent fullscreen once it is playing (mix tap, or restoring a maximized session).
     private var pendingFullscreenMediaId: String? = null
     private var pendingFullscreenAttempts = 0
+    private var startedCuedMediaId: String? = null
     private var mediaFullscreenRestoreScheduled = false
     private var mixesRequestId = 0L
 
@@ -111,7 +115,7 @@ internal class BrowserWebMediaController(
     private val youtubeSearchAttempt = object : Runnable {
         override fun run() {
             val requestId = pendingYoutubeSearchRequestId ?: return
-            val webView = getWebView()
+            val webView = getPage()
             if (isDestroyed || webView == null) {
                 pendingYoutubeSearchRequestId = null
                 pendingYoutubeSearchTerms = null
@@ -159,7 +163,7 @@ internal class BrowserWebMediaController(
     private val youtubeAutoplayAttempt = object : Runnable {
         override fun run() {
             val videoId = pendingYoutubeAutoplayVideoId ?: return
-            val webView = getWebView()
+            val webView = getPage()
             if (isDestroyed || webView == null) {
                 pendingYoutubeAutoplayVideoId = null
                 return
@@ -209,16 +213,16 @@ internal class BrowserWebMediaController(
                     pollPendingSince = 0L
                     updateState(null)
                 }
-                val webView = getWebView()
-                currentWebView = webView
-                if (webView == null) {
+                val active = getPage()
+                val fallback = mediaPage?.takeIf { it !== active && isPageOpen(it) }
+                val target = active ?: fallback
+                currentWebView = target
+                if (target == null) {
                     pollPendingSince = 0L
                     updateState(null)
                 } else {
                     if (pollPendingSince == 0L) pollPendingSince = now
-                    webView.evaluateJavascript(createMonitorScript()) { result ->
-                        onMonitorResult(webView, result)
-                    }
+                    readPage(target, fallback.takeIf { active != null })
                 }
             } catch (error: RuntimeException) {
                 // This loop is the only thing keeping the car's media controls in sync: it must outlive
@@ -230,6 +234,32 @@ internal class BrowserWebMediaController(
             }
         }
     }
+
+    // Reads [page]; when it has no media and [fallback] is given, reads that one instead (see mediaPage).
+    private fun readPage(page: BrowserPage, fallback: BrowserPage?) {
+        page.evaluateJavascript(createMonitorScript(page)) { result ->
+            if (fallback != null && page === currentWebView && parseMonitorResult(result)?.optBoolean("found") != true) {
+                currentWebView = fallback
+                readPage(fallback, null)
+            } else {
+                onMonitorResult(page, result)
+            }
+        }
+    }
+
+    private fun parseMonitorResult(result: String?): JSONObject? = try {
+        when (val parsed = JSONTokener(result ?: "null").nextValue()) {
+            is String -> JSONObject(parsed)
+            is JSONObject -> parsed
+            else -> null // "null": the script threw, or the document was going away
+        }
+    } catch (error: JSONException) {
+        null
+    }
+
+    /** The page media commands go to: the one whose media the car shows. */
+    private fun controlledPage(): BrowserPage? =
+        mediaPage?.takeIf { mediaState.isAvailable && isPageOpen(it) } ?: getPage()
 
     fun startMonitoring() {
         if (!isDestroyed) {
@@ -249,7 +279,7 @@ internal class BrowserWebMediaController(
     fun isPlaying(): Boolean = mediaState.isPlaying
 
     fun captureCurrentPosition() {
-        val webView = getWebView() ?: return
+        val webView = controlledPage() ?: return
         if (mediaState.isAvailable) {
             BrowserPreferences.persistMediaCheckpoint(
                 applicationContext,
@@ -263,7 +293,8 @@ internal class BrowserWebMediaController(
                 isFullscreen()
             )
         }
-        webView.evaluateJavascript(createMonitorScript()) { result ->
+        currentWebView = webView
+        webView.evaluateJavascript(createMonitorScript(webView)) { result ->
             onMonitorResult(webView, result)
         }
     }
@@ -288,7 +319,7 @@ internal class BrowserWebMediaController(
             return
         }
 
-        val webView = getWebView()
+        val webView = getPage()
         if (webView == null) {
             Log.w(TAG, "Cannot search YouTube because there is no active WebView")
             return
@@ -408,31 +439,31 @@ internal class BrowserWebMediaController(
     // Chromium (the car's WebView 95 included) ignores requestFullscreen() without a user activation, and a scripted
     // click carries none. Tap the player's top-left corner first (it only toggles the controls) so the click has one.
     fun toggleFullscreen() {
-        val webView = getWebView() ?: return
+        val webView = getPage() ?: return
         if (isFullscreen()) {
             execute(FULLSCREEN_SCRIPT)
             return
         }
         webView.evaluateJavascript(PLAYER_CORNER_SCRIPT) { result ->
             val point = result?.trim('"')?.split(',')?.mapNotNull(String::toFloatOrNull)
-            if (point?.size == 2 && webView === getWebView()) tapWebView(webView, point[0], point[1])
+            if (point?.size == 2 && webView === getPage()) tapWebView(webView, point[0], point[1])
             handler.postDelayed({ execute(FULLSCREEN_SCRIPT) }, TAP_TO_CLICK_DELAY_MS)
         }
     }
 
-    private fun tapWebView(webView: WebView, x: Float, y: Float) {
+    private fun tapWebView(webView: BrowserPage, x: Float, y: Float) {
         val downTime = SystemClock.uptimeMillis()
         for (action in intArrayOf(MotionEvent.ACTION_DOWN, MotionEvent.ACTION_UP)) {
             val event = MotionEvent.obtain(downTime, SystemClock.uptimeMillis(), action, x, y, 0)
             event.source = InputDevice.SOURCE_TOUCHSCREEN
-            webView.dispatchTouchEvent(event)
+            webView.view.dispatchTouchEvent(event)
             event.recycle()
         }
     }
 
     /** Opens the mix, starts it, and maximizes the player once it is playing. */
     fun playYouTubeMix(mix: YouTubeMix) {
-        val webView = getWebView() ?: return
+        val webView = getPage() ?: return
         pendingYoutubeSearchRequestId = null
         pendingYoutubeSearchTerms = null
         handler.removeCallbacks(youtubeSearchAttempt)
@@ -450,7 +481,7 @@ internal class BrowserWebMediaController(
      * unavailable and null when the page was not ready to be asked yet (call again later).
      */
     fun loadYouTubeMixes(onResult: (List<YouTubeMix>?) -> Unit) {
-        val webView = getWebView()
+        val webView = getPage()
         if (isDestroyed || webView == null || !isYouTubePage()) {
             onResult(emptyList())
             return
@@ -462,7 +493,7 @@ internal class BrowserWebMediaController(
         val read = object : Runnable {
             override fun run() {
                 if (isDestroyed || requestId != mixesRequestId) return
-                val current = getWebView()
+                val current = getPage()
                 if (current == null) {
                     onResult(emptyList())
                     return
@@ -504,7 +535,7 @@ internal class BrowserWebMediaController(
 
 
     fun skipPrevious() {
-        val webView = getWebView()
+        val webView = controlledPage()
         if (isDestroyed || webView == null || !mediaState.canSeek) {
             skipToPreviousTrack()
             return
@@ -534,25 +565,21 @@ internal class BrowserWebMediaController(
         BrowserMediaSessionRegistry.detach(this)
     }
 
-    private fun onMonitorResult(webView: WebView, result: String?) {
-        if (isDestroyed || webView !== currentWebView || webView !== getWebView()) return
+    private fun onMonitorResult(webView: BrowserPage, result: String?) {
+        if (isDestroyed || webView !== currentWebView) return
 
         pollPendingSince = 0L
-        val data = try {
-            when (val parsed = JSONTokener(result ?: "null").nextValue()) {
-                is String -> JSONObject(parsed)
-                is JSONObject -> parsed
-                else -> null // "null": the script threw, or the document was going away
-            }
-        } catch (error: JSONException) {
-            null
-        }
+        val data = parseMonitorResult(result)
         val scriptError = data?.optString("error").orEmpty()
         if (data == null || scriptError.isNotEmpty()) {
             // A missed poll like any other: silently ignoring it left the last state on the car forever.
             if (mediaState.isAvailable) Log.w(TAG, "media monitor gave no state: ${scriptError.ifEmpty { result }}")
             updateState(null)
             return
+        }
+        if (data.optBoolean("found")) {
+            if (mediaPage !== webView) Log.i(TAG, "car media now follows ${webView.url}")
+            mediaPage = webView
         }
         unmuteMutedMedia(webView, data)
         updateState(data)
@@ -561,7 +588,7 @@ internal class BrowserWebMediaController(
 
     // Players can start muted at any point (startup, autoplay, a skip, a restored session), so check every poll.
     // MONITOR_SCRIPT only reports "muted" for a main player that started muted, never for a mute the user chose.
-    private fun unmuteMutedMedia(webView: WebView, data: JSONObject) {
+    private fun unmuteMutedMedia(webView: BrowserPage, data: JSONObject) {
         if (!data.optBoolean("playing") || !data.optBoolean("muted")) return
         Log.i(TAG, "media ${data.optString("mediaId")} is playing muted, unmuting")
         webView.evaluateJavascript(UNMUTE_SCRIPT, null)
@@ -595,7 +622,7 @@ internal class BrowserWebMediaController(
         isYouTubePlaylist = data.optBoolean("isPlaylist")
         youtubeNextUrl = validatedYouTubePlaylistUrl(data.optString("nextUrl"))
         youtubePreviousUrl = validatedYouTubePlaylistUrl(data.optString("previousUrl"))
-        val pageUrl = getWebView()?.url ?: getPageUrl()
+        val pageUrl = currentWebView?.url ?: getPageUrl()
         val fallbackTitle = getPageTitle().ifBlank { pageUrl }
         val mediaId = data.optString("mediaId").ifBlank { pageUrl }
         val complete = data.optBoolean("metadataComplete")
@@ -624,7 +651,7 @@ internal class BrowserWebMediaController(
             durationMs = (data.optDouble("duration", 0.0) * 1_000.0).toLong().coerceAtLeast(0L),
             canSeek = data.optBoolean("canSeek")
         )
-        val restoringPosition = getWebView()?.let { restoreMediaPosition(it, pageUrl, newState) } == true
+        val restoringPosition = currentWebView?.let { restoreMediaPosition(it, pageUrl, newState) } == true
         if (!restoringPosition) {
             BrowserPreferences.persistMediaCheckpoint(
                 applicationContext,
@@ -645,7 +672,10 @@ internal class BrowserWebMediaController(
             pendingFullscreenMediaId = newState.mediaId
             pendingFullscreenAttempts = 0
         }
-        if (pendingFullscreenMediaId == newState.mediaId && newState.isPlaying && newState.hasFullscreenButton) {
+        // Only the tab on screen can be maximized; media from a background tab waits until its tab is shown.
+        if (pendingFullscreenMediaId == newState.mediaId && newState.isPlaying && newState.hasFullscreenButton &&
+            currentWebView === getPage()
+        ) {
             // The button appears late and clicks get swallowed while the player comes up, so retry for ~30 s.
             if (isFullscreen() || pendingFullscreenAttempts >= MAX_PENDING_FULLSCREEN_ATTEMPTS) {
                 Log.i(TAG, "pending fullscreen done (fullscreen=${isFullscreen()}, attempts=$pendingFullscreenAttempts)")
@@ -655,6 +685,15 @@ internal class BrowserWebMediaController(
                 Log.i(TAG, "maximizing player (attempt $pendingFullscreenAttempts)")
                 toggleFullscreen()
             }
+        }
+        // GeckoView: YouTube only cues a video opened by URL (restored page, bookmark, link), where the WebView
+        // build plays it right away. Start it once, as the WebView build does; never again after a pause.
+        if (data.optInt("playerState", -2) == YOUTUBE_STATE_CUED && newState.mediaId != startedCuedMediaId &&
+            YOUTUBE_VIDEO_ID_REGEX.matches(newState.mediaId)
+        ) {
+            startedCuedMediaId = newState.mediaId
+            Log.i(TAG, "starting cued video ${newState.mediaId}")
+            execute(PLAY_SCRIPT)
         }
         if (newState.isPlaying && newState.mediaId == pendingYoutubeAutoplayVideoId) {
             pendingYoutubeAutoplayVideoId = null
@@ -717,7 +756,7 @@ internal class BrowserWebMediaController(
     }
 
     private fun restoreMediaPosition(
-        webView: WebView,
+        webView: BrowserPage,
         pageUrl: String,
         state: BrowserMediaState
     ): Boolean {
@@ -939,7 +978,7 @@ internal class BrowserWebMediaController(
     }
 
     private fun isYouTubePage(): Boolean {
-        val host = Uri.parse(getWebView()?.url ?: getPageUrl()).host ?: return false
+        val host = Uri.parse(controlledPage()?.url ?: getPageUrl()).host ?: return false
         return isYouTubeHost(host)
     }
 
@@ -975,7 +1014,7 @@ internal class BrowserWebMediaController(
         val targetHost = target.host ?: return null
         if (target.scheme != "https" || !isYouTubeHost(targetHost)) return null
 
-        val currentUri = Uri.parse(getWebView()?.url ?: getPageUrl())
+        val currentUri = Uri.parse(controlledPage()?.url ?: getPageUrl())
         val currentListId = currentUri.getQueryParameter("list")
         val targetListId = target.getQueryParameter("list")
         if (currentListId != null && targetListId != null && targetListId != currentListId) return null
@@ -987,7 +1026,7 @@ internal class BrowserWebMediaController(
 
     private fun navigateToPlaylistUrl(url: String) {
         if (isDestroyed) return
-        val webView = getWebView() ?: return
+        val webView = controlledPage() ?: return
         webView.evaluateJavascript("location.assign(${JSONObject.quote(url)});", null)
         youtubeNextUrl = null
         youtubePreviousUrl = null
@@ -997,8 +1036,8 @@ internal class BrowserWebMediaController(
 
     private fun execute(script: String) {
         if (isDestroyed) return
-        val webView = getWebView() ?: return
-        val source = script.replace(BROWSER_URL_PLACEHOLDER, JSONObject.quote(getPageUrl()))
+        val webView = controlledPage() ?: return
+        val source = script.replace(BROWSER_URL_PLACEHOLDER, JSONObject.quote(webView.url ?: getPageUrl()))
         webView.evaluateJavascript(source, null)
         // Re-read the page right after a command so the car sees play/pause/skip now, not on the next 3 s poll
         // (users pressed again when nothing changed, toggling playback back).
@@ -1006,8 +1045,8 @@ internal class BrowserWebMediaController(
         handler.postDelayed(poll, COMMAND_POLL_DELAY_MS)
     }
 
-    private fun createMonitorScript(): String =
-        MONITOR_SCRIPT.replace(BROWSER_URL_PLACEHOLDER, JSONObject.quote(getPageUrl()))
+    private fun createMonitorScript(page: BrowserPage): String =
+        MONITOR_SCRIPT.replace(BROWSER_URL_PLACEHOLDER, JSONObject.quote(page.url ?: getPageUrl()))
 
     private companion object {
         const val MONITOR_INTERVAL_MS = 3_000L
@@ -1015,6 +1054,7 @@ internal class BrowserWebMediaController(
         // Longest unclear stretch ridden out as "still playing". Measured on m.youtube.com: 10.6 s from the end of
         // a video to the next one starting ("up next" countdown), plus a poll that can be 3 s old.
         const val HOLD_MS = 20_000L
+        const val YOUTUBE_STATE_CUED = 5
         // The same, for a page that shows no media at all or stops answering.
         const val MISS_HOLD_MS = 10_000L
         const val HOLD_POLL_INTERVAL_MS = 1_000L
@@ -1066,7 +1106,7 @@ internal class BrowserWebMediaController(
               };
               try {
                 const cfg = function(k) {
-                  try { return window.ytcfg && ytcfg.get(k); } catch (_) { return undefined; }
+                  try { return window.ytcfg && window.ytcfg.get(k); } catch (_) { return undefined; }
                 };
                 if (!cfg("INNERTUBE_CONTEXT")) { state.notReady = true; finish(); return; }
                 const origin = location.origin;
@@ -1075,7 +1115,7 @@ internal class BrowserWebMediaController(
                 const text = function(t) {
                   if (!t) return "";
                   return t.simpleText || t.content ||
-                    (t.runs || []).map(function(r) { return r.text; }).join("");
+                    Array.from(t.runs || []).map(function(r) { return r.text; }).join("");
                 };
                 const unwrap = function(c) { return c && (c.innertubeCommand || c.command || c); };
                 const watchOf = function(e) { return (e && (e.watchEndpoint || e.watchPlaylistEndpoint)) || {}; };
@@ -1091,7 +1131,7 @@ internal class BrowserWebMediaController(
                 };
                 const walk = function(n, depth) {
                   if (!n || typeof n !== "object" || depth > 80) return;
-                  if (Array.isArray(n)) { n.forEach(function(x) { walk(x, depth + 1); }); return; }
+                  if (Array.isArray(n)) { Array.from(n).forEach(function(x) { walk(x, depth + 1); }); return; }
                   const lv = n.lockupViewModel;
                   if (lv && lv.contentType !== "LOCKUP_CONTENT_TYPE_VIDEO") {
                     const context = lv.rendererContext && lv.rendererContext.commandContext;
@@ -1122,7 +1162,7 @@ internal class BrowserWebMediaController(
                   let found = null;
                   (function f(n, depth) {
                     if (found || !n || typeof n !== "object" || depth > 80) return;
-                    if (Array.isArray(n)) { n.forEach(function(x) { f(x, depth + 1); }); return; }
+                    if (Array.isArray(n)) { Array.from(n).forEach(function(x) { f(x, depth + 1); }); return; }
                     const chip = n.chipCloudChipRenderer;
                     if (chip && /^mixes${'$'}/i.test(text(chip.text))) { found = chip; return; }
                     Object.keys(n).forEach(function(k) { f(n[k], depth + 1); });
@@ -1150,22 +1190,26 @@ internal class BrowserWebMediaController(
                       };
                       if (sid) headers["Authorization"] = "SAPISIDHASH " + ts + "_" + hash;
                       if (cfg("DELEGATED_SESSION_ID")) headers["X-Goog-PageId"] = cfg("DELEGATED_SESSION_ID");
-                      return fetch(origin + "/youtubei/v1/" + endpoint + "?prettyPrint=false", {
+                      // GeckoView runs this in an extension context, whose own fetch is not the page's (no
+                      // signed-in cookies); content.fetch is the page's there, and does not exist in a WebView.
+                      const pageFetch = typeof content !== "undefined" && content && content.fetch
+                        ? content.fetch.bind(content) : fetch;
+                      return pageFetch(origin + "/youtubei/v1/" + endpoint + "?prettyPrint=false", {
                         method: "POST", credentials: "same-origin", headers: headers,
                         body: JSON.stringify(Object.assign({ context: context }, body))
                       });
                     })
-                    .then(function(response) { return response.json(); });
+                    .then(function(response) { return response.text(); }).then(JSON.parse);
                 };
                 const continuationToken = function(root) {
                   let token = null;
                   (function f(n, depth) {
                     if (token || !n || typeof n !== "object" || depth > 80) return;
-                    if (Array.isArray(n)) { n.forEach(function(x) { f(x, depth + 1); }); return; }
+                    if (Array.isArray(n)) { Array.from(n).forEach(function(x) { f(x, depth + 1); }); return; }
                     const item = n.continuationItemRenderer;
                     const endpoint = item && item.continuationEndpoint;
                     const command = endpoint && (endpoint.continuationCommand ||
-                      (endpoint.commandExecutorCommand && endpoint.commandExecutorCommand.commands || [])
+                      Array.from(endpoint.commandExecutorCommand && endpoint.commandExecutorCommand.commands || [])
                         .map(function(c) { return c.continuationCommand; }).find(Boolean));
                     if (command && command.token) { token = command.token; return; }
                     Object.keys(n).forEach(function(k) { f(n[k], depth + 1); });
@@ -1251,7 +1295,7 @@ internal class BrowserWebMediaController(
                 "ytm-promoted-sparkles-web-renderer",
                 "[data-ad-preview]"
               ].join(",");
-              for (const anchor of anchors) {
+              for (const anchor of Array.from(anchors)) {
                 if (anchor.closest(adSelector)) continue;
                 let url;
                 try {
@@ -1286,7 +1330,8 @@ internal class BrowserWebMediaController(
                 bridge = { next: null, previous: null };
                 window[key] = bridge;
                 const mediaSession = navigator.mediaSession;
-                if (mediaSession && typeof mediaSession.setActionHandler === "function") {
+                if (mediaSession && typeof mediaSession.setActionHandler === "function" &&
+                    typeof __motionGecko === "undefined") {
                   const original = mediaSession.setActionHandler.bind(mediaSession);
                   mediaSession.setActionHandler = function(action, callback) {
                     if (action === "nexttrack") bridge.next = typeof callback === "function" ? callback : null;
@@ -1323,7 +1368,7 @@ internal class BrowserWebMediaController(
               };
               let mediaPlayer = null;
               let mediaRank = 0;
-              document.querySelectorAll("audio,video").forEach(m => {
+              Array.from(document.querySelectorAll("audio,video")).forEach(m => {
                 const r = rank(m);
                 // Ties stay with the player already followed, then go to the larger one.
                 if (r > mediaRank || (r > 0 && r === mediaRank && mediaPlayer !== bridge.main &&
@@ -1429,6 +1474,8 @@ internal class BrowserWebMediaController(
                 found: !!mediaPlayer || !!youtubeVideoId,
                 isYouTube: isYouTube,
                 playing: playing,
+                // YouTube's own player state: 5 = cued (loaded, never started).
+                playerState: youtubePlayerState,
                 paused: paused,
                 title: title,
                 artist: artist,

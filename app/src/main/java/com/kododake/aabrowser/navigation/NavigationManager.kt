@@ -103,7 +103,7 @@ class NavigationManager(
             }
         }
         
-        val targetWebView = targetTab.webView
+        val targetPage = targetTab.page
         val uri = runCatching { Uri.parse(navigable) }.getOrNull()
         if (uri == null) {
             return
@@ -120,7 +120,7 @@ class NavigationManager(
             BrowserPreferences.persistUrl(context, navigable)
             val isFromStartPage = startPageManager.isShowingStartPage
             if (isFromStartPage) {
-                targetWebView.visibility = View.VISIBLE
+                targetPage.view.visibility = View.VISIBLE
                 callbacks.onHideStartPage()
             }
             startPageManager.beginNavigationLoading(fromStartPage = isFromStartPage)
@@ -139,10 +139,8 @@ class NavigationManager(
                 uri = uri,
                 onAllowOnce = {
                     finishNavigation {
-                        targetWebView.setTag(R.id.webview_allow_once_uri_tag, navigable)
-                        targetWebView.post { 
-                            targetWebView.loadUrl(navigable) 
-                        }
+                        targetPage.allowCleartextOnce(navigable)
+                        targetPage.view.post { targetPage.loadUrl(navigable) }
                     }
                 },
                 onAllowHost = {
@@ -150,10 +148,8 @@ class NavigationManager(
                         BrowserPreferences.addAllowedCleartextHost(context, host)
                     }
                     finishNavigation {
-                        targetWebView.setTag(R.id.webview_allow_once_uri_tag, navigable)
-                        targetWebView.post { 
-                            targetWebView.loadUrl(navigable) 
-                        }
+                        targetPage.allowCleartextOnce(navigable)
+                        targetPage.view.post { targetPage.loadUrl(navigable) }
                     }
                 },
                 onCancel = {
@@ -166,7 +162,7 @@ class NavigationManager(
         }
 
         finishNavigation { 
-            targetWebView.loadUrl(navigable) 
+            targetPage.loadUrl(navigable)
         }
     }
 }

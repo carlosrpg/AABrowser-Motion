@@ -28,10 +28,6 @@ import com.kododake.aabrowser.data.BrowserPreferences
 import com.kododake.aabrowser.databinding.ActivityMainBinding
 import com.kododake.aabrowser.model.UserAgentProfile
 import com.kododake.aabrowser.ui.compose.screens.tabs.TabItemUi
-import com.kododake.aabrowser.web.UserAgentManager
-import com.kododake.aabrowser.web.releaseCompletely
-import com.kododake.aabrowser.web.updateDesktopMode
-import com.kododake.aabrowser.web.updateUserAgentProfile
 
 class TabManager(
     private val context: Context,
@@ -110,7 +106,7 @@ class TabManager(
             onPageDragChanged = callbacks::onPageDragChanged
         )
 
-        binding.webViewContainer.addView(tab.webView)
+        binding.webViewContainer.addView(tab.page.view)
         browserTabs.add(tab)
 
         if (activate) {
@@ -148,9 +144,8 @@ class TabManager(
         val removedTab = browserTabs.removeAt(index)
         onSpeechTabClosed()
 
-        removedTab.speechBridge.destroy()
-        binding.webViewContainer.removeView(removedTab.webView)
-        removedTab.webView.releaseCompletely()
+        binding.webViewContainer.removeView(removedTab.page.view)
+        removedTab.page.release()
 
         if (browserTabs.isEmpty()) {
             createNewTab(activate = true)
@@ -276,21 +271,18 @@ class TabManager(
         TabSessionResetter.resetActiveTab(context, binding, browserTabs, activeTabId, callbacks, newUrl)
 
     fun destroy() {
-        browserTabs.forEach { tab ->
-            tab.speechBridge.destroy()
-            tab.webView.releaseCompletely()
-        }
+        browserTabs.forEach { tab -> tab.page.release() }
         binding.webViewContainer.removeAllViews()
         browserTabs.clear()
     }
 
     fun updateDesktopMode(desktop: Boolean, profile: UserAgentProfile) {
-        browserTabs.forEach { tab -> tab.webView.updateDesktopMode(desktop, profile) }
+        browserTabs.forEach { tab -> tab.page.applyBrowserIdentity(profile, desktop) }
     }
 
     fun updateUserAgentProfile(profile: UserAgentProfile, desktop: Boolean) {
         browserTabs
-            .filterNot { tab -> UserAgentManager.isBrowserIdentityApplied(tab.webView, profile, desktop) }
-            .forEach { tab -> tab.webView.updateUserAgentProfile(profile, desktop) }
+            .filterNot { tab -> tab.page.isBrowserIdentityApplied(profile, desktop) }
+            .forEach { tab -> tab.page.applyBrowserIdentity(profile, desktop) }
     }
 }

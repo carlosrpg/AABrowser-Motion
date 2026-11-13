@@ -24,19 +24,16 @@ import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.kododake.aabrowser.R
 import org.mozilla.geckoview.AllowOrDeny
 import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoSession
-import org.mozilla.geckoview.GeckoSession.PromptDelegate
 import org.mozilla.geckoview.GeckoSessionSettings
 import org.mozilla.geckoview.GeckoView
 
@@ -162,7 +159,7 @@ class GeckoSignInActivity : AppCompatActivity() {
             }
         }
 
-        session.promptDelegate = DialogPromptDelegate()
+        session.promptDelegate = GeckoDialogPrompts(this)
     }
 
     private fun buildLayout(): View {
@@ -189,69 +186,6 @@ class GeckoSignInActivity : AppCompatActivity() {
         }
         root.addView(finishingOverlay, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         return root
-    }
-
-    /** Dialogs for alert/confirm/prompt and <select>, which Gecko does not render on its own. */
-    private inner class DialogPromptDelegate : PromptDelegate {
-        override fun onAlertPrompt(session: GeckoSession, prompt: PromptDelegate.AlertPrompt): GeckoResult<PromptDelegate.PromptResponse> {
-            val result = GeckoResult<PromptDelegate.PromptResponse>()
-            AlertDialog.Builder(this@GeckoSignInActivity)
-                .setTitle(prompt.title)
-                .setMessage(prompt.message)
-                .setPositiveButton(android.R.string.ok) { _, _ -> result.complete(prompt.dismiss()) }
-                .setOnCancelListener { result.complete(prompt.dismiss()) }
-                .show()
-            return result
-        }
-
-        override fun onButtonPrompt(session: GeckoSession, prompt: PromptDelegate.ButtonPrompt): GeckoResult<PromptDelegate.PromptResponse> {
-            val result = GeckoResult<PromptDelegate.PromptResponse>()
-            AlertDialog.Builder(this@GeckoSignInActivity)
-                .setTitle(prompt.title)
-                .setMessage(prompt.message)
-                .setPositiveButton(android.R.string.ok) { _, _ -> result.complete(prompt.confirm(PromptDelegate.ButtonPrompt.Type.POSITIVE)) }
-                .setNegativeButton(android.R.string.cancel) { _, _ -> result.complete(prompt.confirm(PromptDelegate.ButtonPrompt.Type.NEGATIVE)) }
-                .setOnCancelListener { result.complete(prompt.dismiss()) }
-                .show()
-            return result
-        }
-
-        override fun onTextPrompt(session: GeckoSession, prompt: PromptDelegate.TextPrompt): GeckoResult<PromptDelegate.PromptResponse> {
-            val result = GeckoResult<PromptDelegate.PromptResponse>()
-            val input = EditText(this@GeckoSignInActivity).apply { setText(prompt.defaultValue) }
-            AlertDialog.Builder(this@GeckoSignInActivity)
-                .setTitle(prompt.title)
-                .setMessage(prompt.message)
-                .setView(input)
-                .setPositiveButton(android.R.string.ok) { _, _ -> result.complete(prompt.confirm(input.text.toString())) }
-                .setNegativeButton(android.R.string.cancel) { _, _ -> result.complete(prompt.dismiss()) }
-                .setOnCancelListener { result.complete(prompt.dismiss()) }
-                .show()
-            return result
-        }
-
-        override fun onChoicePrompt(session: GeckoSession, prompt: PromptDelegate.ChoicePrompt): GeckoResult<PromptDelegate.PromptResponse> {
-            val flat = ArrayList<PromptDelegate.ChoicePrompt.Choice>()
-            fun collect(choices: Array<PromptDelegate.ChoicePrompt.Choice>) {
-                for (choice in choices) {
-                    val items = choice.items
-                    if (items != null) collect(items) else if (!choice.separator && !choice.disabled) flat.add(choice)
-                }
-            }
-            collect(prompt.choices)
-            if (flat.isEmpty()) return GeckoResult.fromValue(prompt.dismiss())
-
-            val result = GeckoResult<PromptDelegate.PromptResponse>()
-            AlertDialog.Builder(this@GeckoSignInActivity)
-                .setTitle(prompt.title)
-                .setSingleChoiceItems(flat.map { it.label }.toTypedArray(), flat.indexOfFirst { it.selected }) { dialog, which ->
-                    result.complete(prompt.confirm(flat[which]))
-                    dialog.dismiss()
-                }
-                .setOnCancelListener { result.complete(prompt.dismiss()) }
-                .show()
-            return result
-        }
     }
 
     companion object {

@@ -75,7 +75,8 @@ class MainActivity : AppCompatActivity(), BrowserHostContext {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        WebViewWarmupHelper.warmup(this)
+        // The automotive build draws pages with GeckoView: loading the system WebView there would only cost time.
+        if (!com.kododake.aabrowser.gecko.GeckoSupport.AVAILABLE) WebViewWarmupHelper.warmup(this)
         BrowserMediaSessionRegistry.hideMediaSourceOnAutomotive(this)
         DynamicColors.applyToActivityIfAvailable(this)
         AppCompatDelegate.setDefaultNightMode(BrowserPreferences.getThemeMode(this).nightMode)

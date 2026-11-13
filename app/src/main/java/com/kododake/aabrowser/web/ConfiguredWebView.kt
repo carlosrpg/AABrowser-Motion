@@ -171,7 +171,7 @@ fun configureWebView(
                 resultMsg: Message?
             ): Boolean {
                 if (resultMsg == null) return false
-                val newWebView = callbacks.onCreateNewWindow()
+                val newWebView = callbacks.onCreateNewWindow()?.view as? WebView
                 if (newWebView != null) {
                     val transport = resultMsg.obj as? WebView.WebViewTransport
                     if (transport != null) {

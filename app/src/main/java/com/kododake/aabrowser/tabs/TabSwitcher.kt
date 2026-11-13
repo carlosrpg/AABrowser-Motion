@@ -19,7 +19,6 @@ package com.kododake.aabrowser.tabs
 
 import android.view.View
 import com.kododake.aabrowser.databinding.ActivityMainBinding
-import com.kododake.aabrowser.web.WebViewNavigationHelper
 
 object TabSwitcher {
 
@@ -39,7 +38,7 @@ object TabSwitcher {
             val prevIndex = browserTabs.indexOfFirst { it.id == prevActiveId }
             if (prevIndex >= 0) {
                 val prevTab = browserTabs[prevIndex]
-                prevTab.webView.onPause()
+                prevTab.page.onPause()
                 browserTabs[prevIndex] = prevTab.copy(isActive = false)
             }
         }
@@ -58,25 +57,21 @@ object TabSwitcher {
 
         browserTabs.forEach { tab ->
             val isVisible = (tab.id == activeTabInstance.id)
-            tab.webView.visibility = if (isVisible) View.VISIBLE else View.GONE
+            tab.page.view.visibility = if (isVisible) View.VISIBLE else View.GONE
             if (isVisible) {
-                tab.webView.bringToFront()
-                tab.webView.requestFocus()
-                tab.webView.invalidate()
+                tab.page.view.bringToFront()
+                tab.page.view.requestFocus()
+                tab.page.view.invalidate()
             }
         }
-        activeTabInstance.webView.onResume()
+        activeTabInstance.page.onResume()
 
         if (activeTabInstance.currentUrl.isBlank()) {
             callbacks.onShowStartPage()
         } else {
             callbacks.onHideStartPage()
-            if (activeTabInstance.webView.url.isNullOrBlank()) {
-                WebViewNavigationHelper.navigate(
-                    activeTabInstance.webView,
-                    activeTabInstance.currentUrl,
-                    replaceCurrentEntry = true
-                )
+            if (activeTabInstance.page.url.isNullOrBlank()) {
+                activeTabInstance.page.loadUrl(activeTabInstance.currentUrl, replaceCurrentEntry = true)
             }
         }
 

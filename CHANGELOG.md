@@ -1,6 +1,10 @@
 # Changelog
 
 ## Unreleased
+- Android Automotive APK: every page now runs on the bundled GeckoView instead of the head unit's system WebView (Chromium 95, which current YouTube crashes). All of Motion stays the same on top: tabs, menu, media controls, Mixes, voice search, fullscreen, desktop mode. The phone/Android Auto APK keeps using the WebView.
+- Car media controls follow the tab that is playing: pause, play and next keep working when another tab is open or the app is in the background.
+- Android Automotive: a YouTube video opened by link, bookmark or restored page starts playing (GeckoView only loaded it).
+- Android Automotive: "Show video on cluster" is hidden for now; it does not work with GeckoView yet.
 - Releases are split in two APKs. `Motion-<version>.apk` (phones, Android Auto, Android Automotive) no longer bundles GeckoView and is back to its old size. `Motion-<version>-automotive-<arch>.apk` (arm64, armv7 or x86_64) is for Android Automotive head units and keeps the GeckoView Google sign-in; its native code is now compressed (about 160 MB instead of 264 MB).
 - Android Automotive: sign in to Google through a bundled GeckoView engine (head units ship a WebView too old for Google to accept); the session is then copied into the browser. Phones and Android Auto keep signing in in the WebView.
 - Android Automotive: Google sign-in now starts from the browser's current Google session (the WebView's cookies are copied into GeckoView first), so the account is recognized instead of starting from an old one; cookies that did not change are no longer rewritten when copying back.

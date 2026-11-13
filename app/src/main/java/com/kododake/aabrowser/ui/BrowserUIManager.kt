@@ -96,7 +96,7 @@ class BrowserUIManager(
                 if (binding.menuOverlay.isVisible) hideMenuOverlay()
                 // With the video on the cluster, this screen keeps its menu button so cluster mode can be turned off.
                 if (!fullscreenController.isClusterMode()) menuHelper.hideFab()
-                tabManager.activeTab?.webView?.visibility = View.INVISIBLE
+                tabManager.activeTab?.page?.takeUnless { it.drawsOwnFullscreen }?.view?.visibility = View.INVISIBLE
             }
         )
     }
@@ -106,7 +106,7 @@ class BrowserUIManager(
             fromWebChrome = fromWebChrome,
             onRestoreView = {
                 val webViewVisibility = if (startPageManager.isShowingStartPage) View.INVISIBLE else View.VISIBLE
-                tabManager.activeTab?.webView?.visibility = webViewVisibility
+                tabManager.activeTab?.page?.view?.visibility = webViewVisibility
                 applyQuickActionButtonPreferences()
                 callbacks.showMenuButtonTemporarily()
             }

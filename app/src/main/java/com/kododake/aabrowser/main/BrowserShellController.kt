@@ -27,7 +27,8 @@ import android.provider.MediaStore
 import android.view.View
 import android.view.Window
 import android.webkit.CookieManager
-import android.webkit.WebView
+import com.kododake.aabrowser.gecko.GeckoSupport
+import com.kododake.aabrowser.web.BrowserPage
 import androidx.appcompat.R
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
@@ -98,7 +99,8 @@ class BrowserShellController(
 
     private val mediaController = BrowserWebMediaController(
         context = context,
-        getWebView = { managers.tabManager.activeTab?.webView },
+        getPage = { managers.tabManager.activeTab?.page },
+        isPageOpen = { page -> managers.tabManager.browserTabs.any { it.page === page } },
         getPageTitle = { currentPageTitle },
         getPageUrl = { currentUrl },
         onStateChanged = { state ->
@@ -130,7 +132,7 @@ class BrowserShellController(
 
     private val progressController = ProgressIndicatorController(binding.progressComposeView)
 
-    var webView: WebView? = null
+    var page: BrowserPage? = null
         private set
 
     override var currentUrl: String = ""
@@ -150,7 +152,7 @@ class BrowserShellController(
             binding = binding,
             browserManagers = managers,
             actions = MainActivitySetup.Actions(
-                getWebView = { webView },
+                getPage = { page },
                 getCurrentUrl = { currentUrl },
                 getLatestReleaseUrl = { latestReleaseUrl },
                 updateNavigationButtons = ::updateNavigationButtons,
@@ -180,8 +182,10 @@ class BrowserShellController(
             intentUrl = managers.navigationManager.extractBrowsableUrl(intent),
             shouldForceSessionRestore = shouldForceSessionRestore
         )
+        // shortcut: GeckoView pages draw fullscreen in place, so there is no video view to move to the cluster;
+        // moving the GeckoView itself made Gecko leave fullscreen. Off on Gecko until that is solved.
         managers.uiManager.menuHelper.stateHolder.isClusterAvailable =
-            clusterPresentation != null && ClusterPresentation.isAvailable(context)
+            clusterPresentation != null && ClusterPresentation.isAvailable(context) && !GeckoSupport.AVAILABLE
 
         updateNavigationButtons()
         managers.tabManager.refreshTabs()
@@ -225,7 +229,7 @@ class BrowserShellController(
     }
 
     fun onResume() {
-        webView?.onResume()
+        page?.onResume()
         mediaController.startMonitoring()
         managers.themeManager.applyMenuHeaderColors()
         managers.bookmarkManager.refreshBookmarks()
@@ -248,10 +252,10 @@ class BrowserShellController(
         mediaController.captureCurrentPosition()
         if (!mediaController.isPlaying()) {
             managers.uiManager.exitFullscreen()
-            webView?.onPause()
+            page?.onPause()
         }
         managers.tabManager.persistTabSession()
-        runCatching { CookieManager.getInstance().flush() }
+        if (!GeckoSupport.AVAILABLE) runCatching { CookieManager.getInstance().flush() }
     }
 
     // Video on the instrument cluster: the page's fullscreen view is shown there while playback, the page and the
@@ -282,7 +286,7 @@ class BrowserShellController(
         managers.uiManager.exitFullscreen()
         managers.startPageManager.onDestroy()
         managers.tabManager.destroy()
-        webView = null
+        page = null
     }
 
     fun onRequestPermissionsResult(requestCode: Int, grantResults: IntArray) {
@@ -295,7 +299,7 @@ class BrowserShellController(
                 it.id == managers.permissionManager.pendingSpeechBridgeTabId
             }
 
-            speechTab?.speechBridge?.onPermissionResult(granted)
+            speechTab?.page?.onMicrophonePermissionResult(granted)
         }
     }
 
@@ -323,8 +327,8 @@ class BrowserShellController(
                 hideStartPage()
                 true
             }
-            managers.tabManager.activeTab?.webView?.canGoBack() == true -> {
-                managers.tabManager.activeTab?.webView?.goBack()
+            managers.tabManager.activeTab?.page?.canGoBack() == true -> {
+                managers.tabManager.activeTab?.page?.goBack()
                 true
             }
             else -> false
@@ -337,12 +341,12 @@ class BrowserShellController(
 
     private fun showStartPage() {
         managers.startPageManager.showStartPage()
-        webView?.visibility = View.INVISIBLE
+        page?.view?.visibility = View.INVISIBLE
     }
 
     private fun hideStartPage() {
         managers.startPageManager.hideStartPage(currentPageTitle, currentUrl)
-        webView?.visibility = View.VISIBLE
+        page?.view?.visibility = View.VISIBLE
     }
 
     private fun updateNavigationButtons() {
@@ -350,7 +354,7 @@ class BrowserShellController(
             binding = binding,
             isShowingStartPage = managers.startPageManager.isShowingStartPage,
             currentUrl = currentUrl,
-            webView = webView,
+            page = page,
             menuHelper = managers.uiManager.menuHelper
         )
     }
@@ -438,7 +442,7 @@ class BrowserShellController(
     }
 
     override fun onTabChanged(tab: BrowserTab) {
-        webView = tab.webView
+        page = tab.page
         currentUrl = tab.currentUrl
         currentPageTitle = tab.currentTitle
         managers.uiManager.menuHelper.stateHolder.isYouTubePage = isYouTubeUrl(tab.currentUrl)

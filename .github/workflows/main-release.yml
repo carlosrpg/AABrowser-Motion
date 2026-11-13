@@ -70,8 +70,10 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      # Pull requests from this repository's own branches are signed with the release key too, so their APKs
+      # (the "Motion-<version>" artifact) install over the released app for testing; forks get no secrets.
       - name: Restore release keystore
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         env:
           RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
         run: |
@@ -82,7 +84,7 @@ jobs:
           printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RELEASE_STORE_FILE"
 
       - name: Create pull request signing key
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |
           keytool -genkeypair \
             -noprompt \

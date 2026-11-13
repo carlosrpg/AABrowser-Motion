@@ -1,0 +1,21 @@
+{
+  "manifest_version": 2,
+  "name": "Motion page bridge",
+  "version": "1.0",
+  "description": "Runs the app's page scripts in GeckoView, like WebView's evaluateJavascript and document-start scripts.",
+  "browser_specific_settings": {
+    "gecko": { "id": "page-bridge@motion.carlosrpg" }
+  },
+  "permissions": ["nativeMessaging", "nativeMessagingFromContent", "geckoViewAddons", "<all_urls>"],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ]
+}

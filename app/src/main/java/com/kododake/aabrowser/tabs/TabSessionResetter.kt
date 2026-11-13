@@ -20,11 +20,10 @@ package com.kododake.aabrowser.tabs
 import android.content.Context
 import android.view.View
 import com.kododake.aabrowser.databinding.ActivityMainBinding
-import com.kododake.aabrowser.web.releaseCompletely
 
 /**
- * Resets the active tab session by completely destroying the existing WebView instance
- * and replacing it with a fresh, isolated WebView instance to prevent malicious injection,
+ * Resets the active tab session by completely destroying the existing page
+ * and replacing it with a fresh, isolated one to prevent malicious injection,
  * cross-page script leaks, history pollution, and residual background execution.
  */
 object TabSessionResetter {
@@ -42,7 +41,7 @@ object TabSessionResetter {
         if (tabIndex < 0) return null
 
         val oldTab = browserTabs[tabIndex]
-        oldTab.webView.releaseCompletely()
+        oldTab.page.release()
 
         val newTab = BrowserTabFactory.createTab(
             context = context,
@@ -58,14 +57,14 @@ object TabSessionResetter {
             onPageDragChanged = callbacks::onPageDragChanged
         )
 
-        binding.webViewContainer.addView(newTab.webView)
+        binding.webViewContainer.addView(newTab.page.view)
         browserTabs[tabIndex] = newTab
 
-        newTab.webView.visibility = View.VISIBLE
-        newTab.webView.bringToFront()
-        newTab.webView.requestFocus()
-        newTab.webView.invalidate()
-        newTab.webView.onResume()
+        newTab.page.view.visibility = View.VISIBLE
+        newTab.page.view.bringToFront()
+        newTab.page.view.requestFocus()
+        newTab.page.view.invalidate()
+        newTab.page.onResume()
 
         callbacks.onTabChanged(newTab)
         return newTab

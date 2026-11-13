@@ -20,7 +20,6 @@ package com.kododake.aabrowser.ui
 import android.content.Context
 import android.net.Uri
 import android.view.KeyEvent
-import android.webkit.WebView
 import android.widget.Toast
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -71,7 +70,7 @@ class MainActivitySetup(
     )
 
     data class Actions(
-        val getWebView: () -> WebView?,
+        val getPage: () -> com.kododake.aabrowser.web.BrowserPage?,
         val getCurrentUrl: () -> String,
         val getLatestReleaseUrl: () -> String,
         val updateNavigationButtons: () -> Unit,
@@ -122,15 +121,15 @@ class MainActivitySetup(
     private fun setupComposeMenu() {
         val menuActions = com.kododake.aabrowser.ui.compose.screens.menu.MenuActions(
             onBack = {
-                actions.getWebView()?.let { if (it.canGoBack()) it.goBack() }
+                actions.getPage()?.let { if (it.canGoBack()) it.goBack() }
                 actions.updateNavigationButtons()
             },
             onForward = {
-                actions.getWebView()?.let { if (it.canGoForward()) it.goForward() }
+                actions.getPage()?.let { if (it.canGoForward()) it.goForward() }
                 actions.updateNavigationButtons()
             },
             onReload = {
-                actions.getWebView()?.reload()
+                actions.getPage()?.reload()
                 managers.uiManager.hideMenuOverlay()
             },
             onHome = {

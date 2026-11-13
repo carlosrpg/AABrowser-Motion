@@ -17,13 +17,11 @@
 
 package com.kododake.aabrowser.tabs
 
-import android.webkit.WebView
-import com.kododake.aabrowser.web.SpeechRecognitionBridge
+import com.kododake.aabrowser.web.BrowserPage
 
 data class BrowserTab(
     val id: Long,
-    val webView: WebView,
-    val speechBridge: SpeechRecognitionBridge,
+    val page: BrowserPage,
     val currentUrl: String = "",
     val currentTitle: String = "",
     val isActive: Boolean = false

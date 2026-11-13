@@ -45,7 +45,7 @@ object MainActivityBackPressHandler {
                     overlayCoordinator.handleBackPressed() -> { /* Handled by coordinator */ }
                     startPageManager.isNavigating -> startPageManager.cancelNavigationLoading()
                     startPageManager.isShowingStartPage && getCurrentUrl().isNotBlank() -> onHideStartPage()
-                    tabManager.activeTab?.webView?.canGoBack() == true -> tabManager.activeTab?.webView?.goBack()
+                    tabManager.activeTab?.page?.canGoBack() == true -> tabManager.activeTab?.page?.goBack()
                     else -> {
                         isEnabled = false
                         activity.onBackPressedDispatcher.onBackPressed()
