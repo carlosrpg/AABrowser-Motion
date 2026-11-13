@@ -70,8 +70,8 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      # Pull requests from this repository's own branches are signed with the release key too, so their APKs
-      # (the "Motion-<version>" artifact) install over the released app for testing; forks get no secrets.
+      # Pull requests from this repository's own branches are signed with the release key too, so their APK
+      # artifacts install over the released app for testing; forks get no secrets.
       - name: Restore release keystore
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         env:
@@ -127,11 +127,34 @@ jobs:
             "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$apk"
           done
 
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+      # One plain .apk per artifact (archive: false), named after the file, so it can be downloaded and installed
+      # straight from the run page on a head unit with no zip tool. archive: false takes a single file per step.
+      - name: Upload automotive arm64 APK
+        uses: actions/upload-artifact@v7
         with:
-          name: Motion-${{ env.APP_VERSION }}
-          path: release-apks/*.apk
+          path: release-apks/Motion-${{ env.APP_VERSION }}-automotive-arm64.apk
+          archive: false
+          if-no-files-found: error
+
+      - name: Upload automotive armv7 APK
+        uses: actions/upload-artifact@v7
+        with:
+          path: release-apks/Motion-${{ env.APP_VERSION }}-automotive-armv7.apk
+          archive: false
+          if-no-files-found: error
+
+      - name: Upload automotive x86_64 APK
+        uses: actions/upload-artifact@v7
+        with:
+          path: release-apks/Motion-${{ env.APP_VERSION }}-automotive-x86_64.apk
+          archive: false
+          if-no-files-found: error
+
+      - name: Upload phone APK
+        uses: actions/upload-artifact@v7
+        with:
+          path: release-apks/Motion-${{ env.APP_VERSION }}.apk
+          archive: false
           if-no-files-found: error
 
       - name: Create GitHub release
