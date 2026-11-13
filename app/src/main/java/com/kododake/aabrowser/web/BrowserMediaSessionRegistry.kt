@@ -149,6 +149,23 @@ internal object BrowserMediaSessionRegistry {
         }
     }
 
+    private val reannounceSession = Runnable {
+        val session = synchronized(this) { mediaSession?.takeIf { currentState.isAvailable } } ?: return@Runnable
+        if (!session.isActive) return@Runnable
+        session.isActive = false
+        session.isActive = true
+    }
+
+    /**
+     * On the head unit, each audio focus grant to Motion makes the cluster app blank the track shown on the
+     * instrument cluster. The listener that feeds the cluster sends a track only when it changes, so it would
+     * not send it again. Re-announcing the session afterwards makes it pick the session again and send it.
+     */
+    fun reannounceAfterFocusGrant() {
+        callbackHandler.removeCallbacks(reannounceSession)
+        callbackHandler.postDelayed(reannounceSession, FOCUS_GRANT_REANNOUNCE_DELAY_MS)
+    }
+
     @Synchronized
     fun attach(context: Context, controller: BrowserWebMediaController): MediaSessionCompat {
         activeController = controller
@@ -165,6 +182,7 @@ internal object BrowserMediaSessionRegistry {
     ) {
         val session: MediaSessionCompat
         val service: BrowserMediaBrowserService?
+        val startedPlaying: Boolean
         synchronized(this) {
             if (activeController !== controller) {
                 // Another shell (phone or car) owns the session; the one that is playing takes it over.
@@ -174,15 +192,24 @@ internal object BrowserMediaSessionRegistry {
                 if (!state.isPlaying) return
                 activeController = controller
             }
+            startedPlaying = state.isPlaying && !currentState.isPlaying
             currentState = state
             if (updateMetadata) currentMetadata = metadata
             session = getSession(controller.applicationContext)
             service = browserService
         }
 
-        session.isActive = state.isAvailable
+        // Publish metadata and state before (re)activating: session listeners choose a player when the
+        // active-session list changes and read its state right then, so it must already say "playing".
         if (updateMetadata) session.setMetadata(metadata)
         session.setPlaybackState(playbackState)
+        if (startedPlaying && session.isActive && isAutomotive(controller.applicationContext)) {
+            // The active-session list only changes on (de)activation, not when playback starts. Listeners that
+            // pick "the playing session" at that moment (the instrument cluster's track feed on the head unit)
+            // stay on another player if our session was activated while paused or loading. Re-announce it.
+            session.isActive = false
+        }
+        session.isActive = state.isAvailable
         service?.updateForState(state)
         if (resumePlaybackRequested && state.isAvailable) {
             if (state.isPlaying) {
@@ -335,6 +362,7 @@ internal object BrowserMediaSessionRegistry {
     const val FAST_FORWARD_INTERVAL_MS = 15_000L
     private const val SESSION_ACTIVITY_REQUEST = 2039
     private const val RESUME_TIMEOUT_MS = 20_000L
+    private const val FOCUS_GRANT_REANNOUNCE_DELAY_MS = 600L
     private const val RESUMABLE_ACTIONS = PlaybackStateCompat.ACTION_PLAY or
         PlaybackStateCompat.ACTION_PLAY_PAUSE or
         PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID or

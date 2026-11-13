@@ -32,6 +32,7 @@ import androidx.core.content.ContextCompat
 import com.kododake.aabrowser.data.BrowserPreferences
 import com.kododake.aabrowser.model.UserAgentProfile
 import com.kododake.aabrowser.web.BrowserCallbacks
+import com.kododake.aabrowser.web.BrowserMediaSessionRegistry
 import com.kododake.aabrowser.web.BrowserPage
 import com.kododake.aabrowser.web.UserAgentManager
 import com.kododake.aabrowser.web.WebScripts
@@ -85,6 +86,7 @@ internal class GeckoPage(private val context: Context) : BrowserPage {
     private val audioManager = context.getSystemService(AudioManager::class.java)
     private var media: MediaSession? = null
     private var resumeOnFocusGain = false
+    private var holdsAudioFocus = false
 
     // Unlike Chromium, Gecko leaves audio focus to the app: without it the car keeps its own source playing.
     private val focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
@@ -96,14 +98,20 @@ internal class GeckoPage(private val context: Context) : BrowserPage {
         )
         .setOnAudioFocusChangeListener { change ->
             when (change) {
-                AudioManager.AUDIOFOCUS_LOSS -> media?.pause()
+                AudioManager.AUDIOFOCUS_LOSS -> {
+                    holdsAudioFocus = false
+                    media?.pause()
+                }
                 AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> media?.let {
                     resumeOnFocusGain = true
                     it.pause()
                 }
-                AudioManager.AUDIOFOCUS_GAIN -> if (resumeOnFocusGain) {
-                    resumeOnFocusGain = false
-                    media?.play()
+                AudioManager.AUDIOFOCUS_GAIN -> {
+                    BrowserMediaSessionRegistry.reannounceAfterFocusGrant()
+                    if (resumeOnFocusGain) {
+                        resumeOnFocusGain = false
+                        media?.play()
+                    }
                 }
             }
         }
@@ -240,6 +248,7 @@ internal class GeckoPage(private val context: Context) : BrowserPage {
     override fun release() {
         if (released) return
         released = true
+        holdsAudioFocus = false
         audioManager.abandonAudioFocusRequest(focusRequest)
         failPendingScripts()
         port = null
@@ -417,12 +426,19 @@ internal class GeckoPage(private val context: Context) : BrowserPage {
 
         override fun onPlay(session: GeckoSession, mediaSession: MediaSession) {
             media = mediaSession
-            audioManager.requestAudioFocus(focusRequest)
+            // Request focus only when not holding it. On the head unit every grant makes the cluster app
+            // clear the track shown on the instrument cluster, and Gecko reports onPlay for each new video.
+            if (holdsAudioFocus) return
+            if (audioManager.requestAudioFocus(focusRequest) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+                holdsAudioFocus = true
+                BrowserMediaSessionRegistry.reannounceAfterFocusGrant()
+            }
         }
 
         override fun onDeactivated(session: GeckoSession, mediaSession: MediaSession) {
             if (media === mediaSession) media = null
             resumeOnFocusGain = false
+            holdsAudioFocus = false
             audioManager.abandonAudioFocusRequest(focusRequest)
         }
     }
