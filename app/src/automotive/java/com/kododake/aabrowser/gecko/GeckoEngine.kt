@@ -31,7 +31,7 @@ import org.mozilla.geckoview.StorageController
 import org.mozilla.geckoview.WebExtension
 
 /**
- * Process-wide GeckoView runtime, used only for Google sign-in (see GoogleSignInBridge).
+ * Process-wide GeckoView runtime: every tab on the automotive build (GeckoPage) and the Google sign-in screen.
  * GeckoRuntime.create may only be called once per process.
  *
  * Gecko keeps its own cookie jar, so a bundled extension ("cookie_bridge") reads the cookies after sign-in and
@@ -66,7 +66,66 @@ object GeckoEngine {
             .build()
         val created = GeckoRuntime.create(context, settings)
         installCookieBridge(created)
+        installPageBridge(created)
         return created
+    }
+
+    // Page bridge (assets/extensions/page_bridge): GeckoPage's evaluateJavascript, and document-start scripts.
+    private const val PAGE_BRIDGE_URI = "resource://android/assets/extensions/page_bridge/"
+    private const val PAGE_BRIDGE_ID = "page-bridge@motion.carlosrpg"
+    private const val PAGE_SCRIPTS_APP = "motionPageScripts"
+    const val PAGE_APP = "motionPage"
+
+    private var pageBridge: WebExtension? = null
+    private val pageBridgeWaiters = ArrayList<(WebExtension) -> Unit>()
+    private var scriptsPort: WebExtension.Port? = null
+    private val startupScripts = LinkedHashMap<String, Pair<String, List<String>>>()
+
+    /** Runs [action] with the page bridge once it is installed (right away after the first time). */
+    fun withPageBridge(context: Context, action: (WebExtension) -> Unit) {
+        runtime(context)
+        pageBridge?.let(action) ?: pageBridgeWaiters.add(action)
+    }
+
+    /** Like WebView's addDocumentStartJavaScript, for every Gecko tab; null [code] removes it. */
+    fun setStartupScript(context: Context, key: String, code: String?, matches: List<String>) {
+        runtime(context)
+        if (code == null) startupScripts.remove(key) else startupScripts[key] = code to matches
+        scriptsPort?.postMessage(startupScriptMessage(key))
+    }
+
+    private fun startupScriptMessage(key: String): JSONObject {
+        val script = startupScripts[key] ?: return JSONObject().put("type", "unregister").put("key", key)
+        return JSONObject().put("type", "register").put("key", key)
+            .put("code", script.first).put("matches", JSONArray(script.second))
+    }
+
+    private fun installPageBridge(geckoRuntime: GeckoRuntime) {
+        geckoRuntime.webExtensionController.ensureBuiltIn(PAGE_BRIDGE_URI, PAGE_BRIDGE_ID).accept({ extension ->
+            extension ?: return@accept
+            extension.setMessageDelegate(object : WebExtension.MessageDelegate {
+                override fun onConnect(newPort: WebExtension.Port) {
+                    scriptsPort = newPort
+                    newPort.setDelegate(object : WebExtension.PortDelegate {
+                        override fun onPortMessage(message: Any, port: WebExtension.Port) {
+                            Log.w(TAG, "Page script registration failed: $message")
+                        }
+
+                        override fun onDisconnect(port: WebExtension.Port) {
+                            if (scriptsPort === port) scriptsPort = null
+                        }
+                    })
+                    // The background page (re)started: give it every script again.
+                    startupScripts.keys.forEach { newPort.postMessage(startupScriptMessage(it)) }
+                }
+            }, PAGE_SCRIPTS_APP)
+            pageBridge = extension
+            val waiters = ArrayList(pageBridgeWaiters)
+            pageBridgeWaiters.clear()
+            waiters.forEach { it(extension) }
+        }, { error ->
+            Log.e(TAG, "Failed to install page bridge", error)
+        })
     }
 
     private fun installCookieBridge(geckoRuntime: GeckoRuntime) {

@@ -19,6 +19,7 @@ package com.kododake.aabrowser.gecko
 
 import android.content.Context
 import android.content.Intent
+import com.kododake.aabrowser.web.BrowserPage
 
 /** Standard flavor: no GeckoView, so Google sign-in stays in the WebView and these are never reached. */
 internal object GeckoSupport {
@@ -28,4 +29,7 @@ internal object GeckoSupport {
         error("GeckoView is only bundled in the automotive flavor")
 
     fun clearAllData(context: Context) = Unit
+
+    /** Tabs use the system WebView here. */
+    fun createPage(context: Context): BrowserPage? = null
 }

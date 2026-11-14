@@ -17,7 +17,6 @@
 
 package com.kododake.aabrowser.ui.controllers
 
-import android.webkit.WebView
 import com.kododake.aabrowser.databinding.ActivityMainBinding
 
 /**
@@ -29,13 +28,13 @@ object NavigationButtonUpdater {
         binding: ActivityMainBinding,
         isShowingStartPage: Boolean,
         currentUrl: String,
-        webView: WebView?,
+        page: com.kododake.aabrowser.web.BrowserPage?,
         menuHelper: MenuSetupHelper? = null
     ) {
         val notStart = !isShowingStartPage
         val canNavigate = notStart && currentUrl.isNotBlank()
-        val canGoBack = notStart && webView?.canGoBack() == true
-        val canGoForward = notStart && webView?.canGoForward() == true
+        val canGoBack = notStart && page?.canGoBack() == true
+        val canGoForward = notStart && page?.canGoForward() == true
         val canReload = canNavigate
         val canQrCode = canNavigate
 

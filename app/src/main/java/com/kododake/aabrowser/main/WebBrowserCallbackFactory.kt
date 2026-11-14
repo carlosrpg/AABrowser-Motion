@@ -156,7 +156,7 @@ class WebBrowserCallbackFactory(
                     if (provider.startPageManager.isShowingStartPage) {
                         provider.startPageManager.hideStartPage("", "")
                     }
-                    newTab.webView
+                    newTab.page
                 } else {
                     null
                 }

@@ -19,6 +19,7 @@ package com.kododake.aabrowser.gecko
 
 import android.content.Context
 import android.content.Intent
+import com.kododake.aabrowser.web.BrowserPage
 
 /** Automotive flavor: GeckoView is bundled. The standard flavor has a stub with the same shape. */
 internal object GeckoSupport {
@@ -30,4 +31,7 @@ internal object GeckoSupport {
     fun clearAllData(context: Context) {
         GeckoEngine.clearAllData(context)
     }
+
+    /** Every tab runs on GeckoView here: head units ship a system WebView too old for current sites. */
+    fun createPage(context: Context): BrowserPage = GeckoPage(context)
 }
